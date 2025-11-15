@@ -11,6 +11,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -95,7 +96,8 @@ export default function RegistrationScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <KeyboardAvoidingView 
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
@@ -228,11 +230,16 @@ export default function RegistrationScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

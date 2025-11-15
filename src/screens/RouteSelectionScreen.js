@@ -10,19 +10,63 @@ import {
   Platform,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { theme } from '../styles/theme';
 
-// Mock popular destinations data
+// Comprehensive tourist destinations across Northeast India with coordinates
 const popularDestinations = [
-  { id: 1, name: 'Kaziranga National Park', state: 'Assam', category: 'Wildlife', distance: '45 km', image: '🦏' },
-  { id: 2, name: 'Majuli Island', state: 'Assam', category: 'Cultural', distance: '65 km', image: '🏝️' },
-  { id: 3, name: 'Tawang Monastery', state: 'Arunachal Pradesh', category: 'Spiritual', distance: '120 km', image: '🏛️' },
-  { id: 4, name: 'Cherrapunji', state: 'Meghalaya', category: 'Nature', distance: '85 km', image: '🌧️' },
-  { id: 5, name: 'Ziro Valley', state: 'Arunachal Pradesh', category: 'Adventure', distance: '95 km', image: '🏔️' },
-  { id: 6, name: 'Kohima War Cemetery', state: 'Nagaland', category: 'Historical', distance: '110 km', image: '🕊️' },
+  // Assam
+  { id: 1, name: 'Kaziranga National Park', state: 'Assam', category: 'Wildlife', image: '🦏', lat: 26.5775, lng: 93.1711 },
+  { id: 2, name: 'Majuli Island', state: 'Assam', category: 'Cultural', image: '🏝️', lat: 26.9500, lng: 94.2167 },
+  { id: 3, name: 'Kamakhya Temple', state: 'Assam', category: 'Spiritual', image: '🕉️', lat: 26.1656, lng: 91.7050 },
+  { id: 4, name: 'Manas National Park', state: 'Assam', category: 'Wildlife', image: '🐘', lat: 26.6761, lng: 90.9635 },
+  { id: 5, name: 'Pobitora Wildlife Sanctuary', state: 'Assam', category: 'Wildlife', image: '🦏', lat: 26.2500, lng: 92.0333 },
+  { id: 6, name: 'Umananda Island', state: 'Assam', category: 'Spiritual', image: '🛕', lat: 26.1813, lng: 91.7417 },
+  { id: 7, name: 'Assam State Zoo', state: 'Assam', category: 'Wildlife', image: '🦁', lat: 26.1678, lng: 91.7778 },
+  { id: 8, name: 'Srimanta Sankardev Kalakshetra', state: 'Assam', category: 'Cultural', image: '🎭', lat: 26.1431, lng: 91.7898 },
+  { id: 9, name: 'Navagraha Temple', state: 'Assam', category: 'Spiritual', image: '🕉️', lat: 26.1811, lng: 91.8067 },
+  { id: 10, name: 'Haflong Hill Station', state: 'Assam', category: 'Nature', image: '🏔️', lat: 25.1669, lng: 93.0175 },
+  { id: 11, name: 'Sivasagar Tank', state: 'Assam', category: 'Cultural', image: '🏛️', lat: 26.9840, lng: 94.6411 },
+  { id: 12, name: 'Gibbon Wildlife Sanctuary', state: 'Assam', category: 'Wildlife', image: '🐵', lat: 26.7000, lng: 94.5667 },
+  
+  // Meghalaya
+  { id: 13, name: 'Shillong Peak', state: 'Meghalaya', category: 'Nature', image: '⛰️', lat: 25.5544, lng: 91.9014 },
+  { id: 14, name: 'Elephant Falls', state: 'Meghalaya', category: 'Nature', image: '💧', lat: 25.5275, lng: 91.8906 },
+  { id: 15, name: 'Umiam Lake', state: 'Meghalaya', category: 'Nature', image: '🌊', lat: 25.6645, lng: 91.9159 },
+  { id: 16, name: 'Don Bosco Museum', state: 'Meghalaya', category: 'Cultural', image: '🏛️', lat: 25.5788, lng: 91.8933 },
+  { id: 17, name: 'Mawlynnong Village', state: 'Meghalaya', category: 'Cultural', image: '🏡', lat: 25.2025, lng: 91.9464 },
+  { id: 18, name: 'Cherrapunji', state: 'Meghalaya', category: 'Nature', image: '🌧️', lat: 25.2654, lng: 91.7321 },
+  { id: 19, name: 'Living Root Bridges', state: 'Meghalaya', category: 'Nature', image: '🌉', lat: 25.2583, lng: 91.7056 },
+  { id: 20, name: 'Nohkalikai Falls', state: 'Meghalaya', category: 'Nature', image: '💦', lat: 25.2758, lng: 91.7197 },
+  
+  // Arunachal Pradesh
+  { id: 21, name: 'Tawang Monastery', state: 'Arunachal Pradesh', category: 'Spiritual', image: '🏛️', lat: 27.5864, lng: 91.8597 },
+  { id: 22, name: 'Ziro Valley', state: 'Arunachal Pradesh', category: 'Nature', image: '🏔️', lat: 27.5445, lng: 93.8293 },
+  { id: 23, name: 'Sela Pass', state: 'Arunachal Pradesh', category: 'Nature', image: '⛰️', lat: 27.3567, lng: 92.0635 },
+  { id: 24, name: 'Namdapha National Park', state: 'Arunachal Pradesh', category: 'Wildlife', image: '🐆', lat: 27.5167, lng: 96.4167 },
+  { id: 25, name: 'Itanagar Wildlife Sanctuary', state: 'Arunachal Pradesh', category: 'Wildlife', image: '🦌', lat: 27.0844, lng: 93.6053 },
+  
+  // Nagaland
+  { id: 26, name: 'Kohima War Cemetery', state: 'Nagaland', category: 'Historical', image: '🕊️', lat: 25.6640, lng: 94.1078 },
+  { id: 27, name: 'Dzukou Valley', state: 'Nagaland', category: 'Nature', image: '🌸', lat: 25.5500, lng: 94.0833 },
+  { id: 28, name: 'Japfu Peak', state: 'Nagaland', category: 'Nature', image: '🏔️', lat: 25.6000, lng: 94.0500 },
+  
+  // Manipur
+  { id: 29, name: 'Loktak Lake', state: 'Manipur', category: 'Nature', image: '🌊', lat: 24.5167, lng: 93.8167 },
+  { id: 30, name: 'Kangla Fort', state: 'Manipur', category: 'Historical', image: '🏰', lat: 24.8108, lng: 93.9536 },
+  { id: 31, name: 'Keibul Lamjao National Park', state: 'Manipur', category: 'Wildlife', image: '🦌', lat: 24.5167, lng: 93.8333 },
+  
+  // Tripura
+  { id: 32, name: 'Ujjayanta Palace', state: 'Tripura', category: 'Historical', image: '🏰', lat: 23.8368, lng: 91.2791 },
+  { id: 33, name: 'Neermahal', state: 'Tripura', category: 'Historical', image: '🏛️', lat: 23.5767, lng: 91.5333 },
+  { id: 34, name: 'Sepahijala Wildlife Sanctuary', state: 'Tripura', category: 'Wildlife', image: '🦜', lat: 23.6333, lng: 91.3833 },
+  
+  // Mizoram
+  { id: 35, name: 'Vantawng Falls', state: 'Mizoram', category: 'Nature', image: '💧', lat: 23.4833, lng: 92.9833 },
+  { id: 36, name: 'Phawngpui Blue Mountain', state: 'Mizoram', category: 'Nature', image: '⛰️', lat: 22.6167, lng: 93.0333 },
 ];
 
 const categories = [
@@ -36,24 +80,43 @@ const categories = [
 ];
 
 export default function RouteSelectionScreen({ navigation }) {
-  const [searchText, setSearchText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [destinations, setDestinations] = useState(popularDestinations);
-  const [recentSearches, setRecentSearches] = useState([
-    'Shillong', 'Guwahati', 'Itanagar', 'Dimapur'
-  ]);
-  
-  // New route planning states
   const [startLocation, setStartLocation] = useState('');
+  const [startCoordinates, setStartCoordinates] = useState(null);
   const [destinationLocation, setDestinationLocation] = useState('');
-  const [showRouteInputs, setShowRouteInputs] = useState(false);
-  const [routeSuggestions, setRouteSuggestions] = useState([]);
-  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [nearbyDestinations, setNearbyDestinations] = useState([]);
+  const [allDestinations, setAllDestinations] = useState([]);
+  const [availableTags, setAvailableTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   useEffect(() => {
     getCurrentLocation();
   }, []);
+
+  useEffect(() => {
+    // Update nearby destinations when source location changes
+    if (startLocation.trim() && startCoordinates) {
+      fetchNearbyDestinations(startLocation, startCoordinates);
+    } else {
+      setNearbyDestinations([]);
+      setAllDestinations([]);
+      setAvailableTags([]);
+      setSelectedTags([]);
+    }
+  }, [startLocation, startCoordinates]);
+
+  useEffect(() => {
+    // Filter destinations based on selected tags
+    if (selectedTags.length === 0) {
+      setNearbyDestinations(allDestinations);
+    } else {
+      const filtered = allDestinations.filter(dest =>
+        selectedTags.includes(dest.category)
+      );
+      setNearbyDestinations(filtered);
+    }
+  }, [selectedTags, allDestinations]);
 
   const getCurrentLocation = async () => {
     try {
@@ -70,106 +133,188 @@ export default function RouteSelectionScreen({ navigation }) {
     }
   };
 
-  const handleSearch = (text) => {
-    setSearchText(text);
-    if (text.length > 0) {
-      const filtered = popularDestinations.filter(dest =>
-        dest.name.toLowerCase().includes(text.toLowerCase()) ||
-        dest.state.toLowerCase().includes(text.toLowerCase())
-      );
-      setDestinations(filtered);
-    } else {
-      setDestinations(popularDestinations);
-    }
-  };
-
-  const handleCategorySelect = (category) => {
-    setSelectedCategory(category);
-    if (category === 'all') {
-      setDestinations(popularDestinations);
-    } else {
-      const filtered = popularDestinations.filter(dest =>
-        dest.category.toLowerCase() === category.toLowerCase()
-      );
-      setDestinations(filtered);
-    }
-  };
-
-  const handleDestinationSelect = (destination) => {
-    navigation.navigate('RoutePlanning', { destination });
-  };
-
-  const calculateRoute = async () => {
-    if (!startLocation.trim() || !destinationLocation.trim()) {
-      Alert.alert('Missing Information', 'Please enter both starting location and destination.');
-      return;
-    }
-
-    setIsCalculatingRoute(true);
-    
-    try {
-      // Simulate route calculation (in real app, use routing API)
-      const mockRoutes = [
-        {
-          id: 1,
-          name: 'Fastest Route',
-          duration: '2h 45m',
-          distance: '125 km',
-          safetyScore: 85,
-          description: 'Via main highways - fastest but moderate traffic',
-          highlights: ['Well-lit roads', 'Regular fuel stations', 'Good network coverage'],
-          warnings: ['Heavy traffic 9-11 AM', 'Construction work at km 45']
-        },
-        {
-          id: 2,
-          name: 'Safest Route',
-          duration: '3h 15m',
-          distance: '138 km',
-          safetyScore: 95,
-          description: 'Via scenic route - safer with better emergency services',
-          highlights: ['24/7 police patrolling', 'Multiple hospitals', 'Tourist-friendly areas'],
-          warnings: ['Longer travel time', 'Mountain roads']
-        },
-        {
-          id: 3,
-          name: 'Scenic Route',
-          duration: '3h 45m',
-          distance: '145 km',
-          safetyScore: 78,
-          description: 'Beautiful landscapes - perfect for leisure travel',
-          highlights: ['Amazing viewpoints', 'Local attractions', 'Photo opportunities'],
-          warnings: ['Remote areas', 'Limited network in some areas']
-        }
-      ];
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setRouteSuggestions(mockRoutes);
-      
-    } catch (error) {
-      console.error('Route calculation error:', error);
-      Alert.alert('Error', 'Unable to calculate route. Please try again.');
-    } finally {
-      setIsCalculatingRoute(false);
-    }
-  };
-
-  const selectRoute = (route) => {
-    navigation.navigate('RoutePlanning', { 
-      startLocation,
-      destinationLocation,
-      routeData: routeSuggestions,
-      selectedRoute: route
-    });
+  // Haversine formula to calculate distance between two coordinates in km
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
   };
 
   const useCurrentLocationAsStart = async () => {
-    if (currentLocation) {
-      const address = `${currentLocation.coords.latitude.toFixed(4)}, ${currentLocation.coords.longitude.toFixed(4)}`;
-      setStartLocation(address);
+    setIsLoadingLocation(true);
+    try {
+      // Check location permission first
+      let { status } = await Location.getForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        // Request permission if not granted
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+        
+        if (newStatus !== 'granted') {
+          Alert.alert(
+            'Location Permission Required',
+            'Please enable location access in your device settings to use this feature.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        status = newStatus;
+      }
+
+      // Get current location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      
+      setCurrentLocation(location);
+
+      try {
+        // Reverse geocoding to get place name
+        const address = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        
+        if (address && address.length > 0) {
+          const place = address[0];
+          // Format address with city, region, or name
+          const locationName = place.city || place.subregion || place.region || 
+                              place.name || place.district || 
+                              `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
+          setStartLocation(locationName);
+          setStartCoordinates({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          });
+        } else {
+          setStartLocation(`${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`);
+          setStartCoordinates({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          });
+        }
+      } catch (error) {
+        console.error('Error reverse geocoding:', error);
+        setStartLocation(`${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`);
+        setStartCoordinates({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to get your current location. Please make sure location services are enabled.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  const fetchNearbyDestinations = async (sourceLocation, coordinates) => {
+    if (!coordinates) return;
+
+    // Calculate distances and filter destinations within 100km
+    const nearbyPlaces = popularDestinations
+      .map(dest => {
+        const distance = calculateDistance(
+          coordinates.latitude,
+          coordinates.longitude,
+          dest.lat,
+          dest.lng
+        );
+        return {
+          ...dest,
+          distance: `${Math.round(distance)} km`,
+          distanceValue: distance
+        };
+      })
+      .filter(dest => dest.distanceValue <= 100) // Only show destinations within 100km
+      .sort((a, b) => a.distanceValue - b.distanceValue); // Sort by distance (closest first)
+    
+    setAllDestinations(nearbyPlaces);
+    setNearbyDestinations(nearbyPlaces);
+    
+    if (nearbyPlaces.length === 0) {
+      Alert.alert(
+        'No Nearby Destinations',
+        'No tourist destinations found within 100km of your location. Try a different source location.',
+        [{ text: 'OK' }]
+      );
+    }
+    
+    // Extract unique categories for tags
+    const uniqueCategories = [...new Set(nearbyPlaces.map(dest => dest.category))];
+    setAvailableTags(uniqueCategories);
+    setSelectedTags([]);
+  };
+
+  const handleStartLocationChange = async (text) => {
+    setStartLocation(text);
+    
+    // Clear coordinates when user starts typing
+    if (text.trim() === '') {
+      setStartCoordinates(null);
+    }
+  };
+
+  const handleStartLocationSubmit = async () => {
+    if (!startLocation.trim()) return;
+
+    try {
+      // Try to geocode the entered location
+      const geocoded = await Location.geocodeAsync(startLocation);
+      
+      if (geocoded && geocoded.length > 0) {
+        const { latitude, longitude } = geocoded[0];
+        setStartCoordinates({ latitude, longitude });
+      } else {
+        Alert.alert(
+          'Location Not Found',
+          'Could not find the specified location. Please try a different location or use current location.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error geocoding location:', error);
+      Alert.alert(
+        'Error',
+        'Unable to find location. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handlePlanRoute = () => {
+    if (!startLocation.trim() || !destinationLocation.trim()) {
+      Alert.alert('Missing Information', 'Please enter both source and destination locations.');
+      return;
+    }
+
+    navigation.navigate('RoutePlanning', { 
+      startLocation,
+      destinationLocation
+    });
+  };
+
+  const handleDestinationSelect = (destination) => {
+    setDestinationLocation(destination.name);
+  };
+
+  const toggleTag = (tag) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
     } else {
-      Alert.alert('Location Unavailable', 'Please enable location services to use current location.');
+      setSelectedTags([...selectedTags, tag]);
     }
   };
 
@@ -201,142 +346,73 @@ export default function RouteSelectionScreen({ navigation }) {
             </View>
           </View>
         </View>
-        
-        <View style={styles.destinationActions}>
-          <View style={styles.safetyIndicator}>
-            <Ionicons name="shield-checkmark" size={16} color={theme.colors.success} />
-            <Text style={styles.safetyText}>Safety Verified</Text>
-          </View>
-          
-          <TouchableOpacity style={styles.selectButton}>
-            <Text style={styles.selectButtonText}>Select Route</Text>
-            <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
       </LinearGradient>
-    </TouchableOpacity>
-  );
-
-  const renderCategoryItem = (category) => (
-    <TouchableOpacity
-      key={category.id}
-      style={[
-        styles.categoryItem,
-        selectedCategory === category.id && styles.categoryItemSelected
-      ]}
-      onPress={() => handleCategorySelect(category.id)}
-    >
-      <Ionicons 
-        name={category.icon} 
-        size={20} 
-        color={selectedCategory === category.id ? '#fff' : theme.colors.primary} 
-      />
-      <Text style={[
-        styles.categoryText,
-        selectedCategory === category.id && styles.categoryTextSelected
-      ]}>
-        {category.name}
-      </Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={[theme.colors.primary, theme.colors.secondary]}
-        style={styles.header}
-      >
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        {/* Header */}
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.secondary]}
+          style={styles.header}
         >
-          <Ionicons name="chevron-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>
-            {showRouteInputs ? 'Plan Your Route' : 'Choose Destination'}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {showRouteInputs ? 'Enter start and destination locations' : 'Where would you like to go today?'}
-          </Text>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.toggleButton}
-          onPress={() => setShowRouteInputs(!showRouteInputs)}
-        >
-          <Ionicons 
-            name={showRouteInputs ? "list" : "navigate"} 
-            size={24} 
-            color="#fff" 
-          />
-        </TouchableOpacity>
-      </LinearGradient>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Plan Your Journey</Text>
+            <Text style={styles.headerSubtitle}>Enter your travel details</Text>
+          </View>
+        </LinearGradient>
 
-      {/* Search Section */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search destinations..."
-            placeholderTextColor={theme.colors.textSecondary}
-            value={searchText}
-            onChangeText={handleSearch}
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        {/* Current Location */}
-        <TouchableOpacity style={styles.currentLocationButton}>
-          <Ionicons name="location" size={16} color={theme.colors.primary} />
-          <Text style={styles.currentLocationText}>Use current location</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Route Planning Section */}
-        {showRouteInputs && (
-          <View style={styles.routePlanningSection}>
-            <Text style={styles.sectionTitle}>Route Planning</Text>
-            
-            {/* Starting Location Input */}
-            <View style={styles.locationInputContainer}>
-              <View style={styles.locationInputHeader}>
-                <Ionicons name="radio-button-on" size={16} color={theme.colors.success} />
-                <Text style={styles.locationInputLabel}>Starting Location</Text>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Route Input Section */}
+          <View style={styles.routeInputSection}>
+            {/* Source Location Input */}
+            <View style={styles.inputContainer}>
+              <View style={styles.inputHeader}>
+                <Ionicons name="radio-button-on" size={18} color={theme.colors.success} />
+                <Text style={styles.inputLabel}>Source Location</Text>
               </View>
-              <View style={styles.locationInputRow}>
+              <View style={styles.inputRow}>
                 <TextInput
-                  style={styles.locationInput}
+                  style={styles.textInput}
                   placeholder="Enter starting location..."
                   placeholderTextColor={theme.colors.textSecondary}
                   value={startLocation}
-                  onChangeText={setStartLocation}
+                  onChangeText={handleStartLocationChange}
+                  onSubmitEditing={handleStartLocationSubmit}
+                  returnKeyType="search"
                 />
                 <TouchableOpacity 
-                  style={styles.currentLocationBtn}
+                  style={styles.locationButton}
                   onPress={useCurrentLocationAsStart}
+                  activeOpacity={0.7}
+                  disabled={isLoadingLocation}
                 >
-                  <Ionicons name="locate" size={16} color={theme.colors.primary} />
+                  {isLoadingLocation ? (
+                    <Ionicons name="refresh" size={20} color={theme.colors.primary} />
+                  ) : (
+                    <Ionicons name="locate" size={20} color={theme.colors.primary} />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Destination Input */}
-            <View style={styles.locationInputContainer}>
-              <View style={styles.locationInputHeader}>
-                <Ionicons name="location" size={16} color={theme.colors.error} />
-                <Text style={styles.locationInputLabel}>Destination</Text>
+            <View style={styles.inputContainer}>
+              <View style={styles.inputHeader}>
+                <Ionicons name="location" size={18} color={theme.colors.error} />
+                <Text style={styles.inputLabel}>Destination</Text>
               </View>
               <TextInput
-                style={styles.locationInput}
+                style={styles.textInput}
                 placeholder="Enter destination..."
                 placeholderTextColor={theme.colors.textSecondary}
                 value={destinationLocation}
@@ -344,202 +420,93 @@ export default function RouteSelectionScreen({ navigation }) {
               />
             </View>
 
-            {/* Calculate Route Button */}
+            {/* Plan Route Button */}
             <TouchableOpacity 
-              style={[styles.calculateRouteButton, isCalculatingRoute && styles.disabledButton]}
-              onPress={calculateRoute}
-              disabled={isCalculatingRoute}
+              style={styles.planRouteButton}
+              onPress={handlePlanRoute}
             >
               <LinearGradient
                 colors={[theme.colors.primary, theme.colors.secondary]}
-                style={styles.calculateRouteGradient}
+                style={styles.planRouteGradient}
               >
-                {isCalculatingRoute ? (
-                  <>
-                    <Text style={styles.calculateRouteText}>Calculating...</Text>
-                    <View style={styles.loadingDots}>
-                      <View style={[styles.loadingDot, styles.dot1]} />
-                      <View style={[styles.loadingDot, styles.dot2]} />
-                      <View style={[styles.loadingDot, styles.dot3]} />
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="map" size={20} color="#fff" />
-                    <Text style={styles.calculateRouteText}>Calculate Best Route</Text>
-                  </>
-                )}
+                <Ionicons name="navigate" size={20} color="#fff" />
+                <Text style={styles.planRouteText}>Plan Route</Text>
               </LinearGradient>
             </TouchableOpacity>
+          </View>
 
-            {/* Route Suggestions */}
-            {routeSuggestions.length > 0 && (
-              <View style={styles.routeSuggestionsContainer}>
-                <Text style={styles.routeSuggestionsTitle}>Route Options</Text>
-                {routeSuggestions.map((route) => (
-                  <TouchableOpacity
-                    key={route.id}
-                    style={styles.routeCard}
-                    onPress={() => selectRoute(route)}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.surface, `${theme.colors.primary}05`]}
-                      style={styles.routeCardGradient}
-                    >
-                      <View style={styles.routeHeader}>
-                        <View style={styles.routeNameContainer}>
-                          <Text style={styles.routeName}>{route.name}</Text>
-                          <View style={[styles.safetyBadge, {
-                            backgroundColor: route.safetyScore >= 90 ? theme.colors.success + '20' : 
-                                            route.safetyScore >= 80 ? theme.colors.warning + '20' : 
-                                            theme.colors.error + '20'
-                          }]}>
-                            <Text style={[styles.safetyBadgeText, {
-                              color: route.safetyScore >= 90 ? theme.colors.success : 
-                                     route.safetyScore >= 80 ? theme.colors.warning : 
-                                     theme.colors.error
-                            }]}>
-                              {route.safetyScore}% Safe
-                            </Text>
-                          </View>
-                        </View>
-                        
-                        <View style={styles.routeStats}>
-                          <View style={styles.routeStat}>
-                            <Ionicons name="time" size={14} color={theme.colors.textSecondary} />
-                            <Text style={styles.routeStatText}>{route.duration}</Text>
-                          </View>
-                          <View style={styles.routeStat}>
-                            <Ionicons name="speedometer" size={14} color={theme.colors.textSecondary} />
-                            <Text style={styles.routeStatText}>{route.distance}</Text>
-                          </View>
-                        </View>
-                      </View>
-                      
-                      <Text style={styles.routeDescription}>{route.description}</Text>
-                      
-                      <View style={styles.routeDetails}>
-                        <View style={styles.routeHighlights}>
-                          <Text style={styles.routeDetailsTitle}>✓ Highlights:</Text>
-                          {route.highlights.map((highlight, index) => (
-                            <Text key={index} style={styles.routeDetailText}>• {highlight}</Text>
-                          ))}
-                        </View>
-                        
-                        {route.warnings.length > 0 && (
-                          <View style={styles.routeWarnings}>
-                            <Text style={styles.routeWarningsTitle}>⚠ Warnings:</Text>
-                            {route.warnings.map((warning, index) => (
-                              <Text key={index} style={styles.routeWarningText}>• {warning}</Text>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                      
-                      <TouchableOpacity 
-                        style={styles.selectRouteButton}
-                        onPress={() => selectRoute(route)}
-                      >
-                        <Text style={styles.selectRouteButtonText}>Select This Route</Text>
-                        <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
-                      </TouchableOpacity>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                ))}
+          {/* Nearby Tourist Places Suggestions */}
+          {nearbyDestinations.length > 0 && (
+            <View style={styles.suggestionsSection}>
+              <View style={styles.suggestionHeader}>
+                <Ionicons name="compass" size={24} color={theme.colors.primary} />
+                <Text style={styles.suggestionTitle}>Nearby Tourist Places</Text>
               </View>
-            )}
-          </View>
-        )}
-
-        {/* Original Categories - only show when not in route planning mode */}
-        {!showRouteInputs && (
-          <>
-        {/* Categories */}
-        <View style={styles.categoriesSection}>
-          <Text style={styles.sectionTitle}>Categories</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoriesContainer}
-            contentContainerStyle={styles.categoriesContent}
-          >
-            {categories.map(renderCategoryItem)}
-          </ScrollView>
-        </View>
-
-        {/* Recent Searches */}
-        {searchText.length === 0 && (
-          <View style={styles.recentSection}>
-            <Text style={styles.sectionTitle}>Recent Searches</Text>
-            <View style={styles.recentContainer}>
-              {recentSearches.map((search, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.recentItem}
-                  onPress={() => handleSearch(search)}
-                >
-                  <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                  <Text style={styles.recentText}>{search}</Text>
-                </TouchableOpacity>
-              ))}
+              <Text style={styles.suggestionSubtitle}>
+                Popular destinations near your source location
+              </Text>
+              
+              {/* Dynamic Filter Tags */}
+              {availableTags.length > 0 && (
+                <View style={styles.tagsContainer}>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tagsScrollContent}
+                  >
+                    {availableTags.map((tag) => (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[
+                          styles.tagChip,
+                          selectedTags.includes(tag) && styles.tagChipSelected
+                        ]}
+                        onPress={() => toggleTag(tag)}
+                      >
+                        <Text style={[
+                          styles.tagText,
+                          selectedTags.includes(tag) && styles.tagTextSelected
+                        ]}>
+                          {tag}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              
+              <FlatList
+                data={nearbyDestinations}
+                renderItem={renderDestinationCard}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+                contentContainerStyle={styles.destinationsList}
+              />
             </View>
-          </View>
-        )}
+          )}
 
-        {/* Popular Destinations */}
-        <View style={styles.destinationsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {searchText.length > 0 ? 'Search Results' : 'Popular Destinations'}
+          {/* Safety Information */}
+          <View style={styles.safetySection}>
+            <View style={styles.safetyHeader}>
+              <Ionicons name="shield-checkmark" size={24} color={theme.colors.success} />
+              <Text style={styles.safetyTitle}>Safety First</Text>
+            </View>
+            <Text style={styles.safetyDescription}>
+              All routes are analyzed for safety. We provide real-time risk assessment, 
+              emergency services locations, and network coverage information.
             </Text>
-            <Text style={styles.resultCount}>
-              {destinations.length} destinations
-            </Text>
           </View>
-          
-          <FlatList
-            data={destinations}
-            renderItem={renderDestinationCard}
-            keyExtractor={(item) => item.id.toString()}
-            scrollEnabled={false}
-            contentContainerStyle={styles.destinationsList}
-          />
-        </View>
-
-        {/* Safety Information */}
-        <View style={styles.safetySection}>
-          <View style={styles.safetyHeader}>
-            <Ionicons name="shield-checkmark" size={24} color={theme.colors.success} />
-            <Text style={styles.safetyTitle}>Safety First</Text>
-          </View>
-          <Text style={styles.safetyDescription}>
-            All destinations are pre-verified for safety. Route recommendations include real-time 
-            risk assessment, emergency services locations, and network coverage analysis.
-          </Text>
-          
-          <View style={styles.safetyFeatures}>
-            <View style={styles.safetyFeature}>
-              <Ionicons name="medical" size={16} color={theme.colors.accent} />
-              <Text style={styles.safetyFeatureText}>Emergency Services</Text>
-            </View>
-            <View style={styles.safetyFeature}>
-              <Ionicons name="cellular" size={16} color={theme.colors.accent} />
-              <Text style={styles.safetyFeatureText}>Network Coverage</Text>
-            </View>
-            <View style={styles.safetyFeature}>
-              <Ionicons name="analytics" size={16} color={theme.colors.accent} />
-              <Text style={styles.safetyFeatureText}>Risk Assessment</Text>
-            </View>
-          </View>
-        </View>
-        </>
-        )}
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -549,7 +516,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingTop: Platform.OS === 'ios' ? 50 : theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
   },
   backButton: {
     padding: theme.spacing.sm,
@@ -559,132 +526,100 @@ const styles = StyleSheet.create({
     marginLeft: theme.spacing.md,
   },
   headerTitle: {
-    fontSize: theme.fonts.sizes.xl,
+    fontSize: theme.fonts.sizes.xxl,
     fontWeight: 'bold',
     color: '#fff',
   },
   headerSubtitle: {
     fontSize: theme.fonts.sizes.sm,
     color: 'rgba(255,255,255,0.9)',
-  },
-  toggleButton: {
-    padding: theme.spacing.sm,
-  },
-  searchSection: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-    fontSize: theme.fonts.sizes.md,
-    color: theme.colors.text,
-  },
-  currentLocationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  currentLocationText: {
-    marginLeft: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.primary,
-    fontWeight: '500',
+    marginTop: theme.spacing.xs,
   },
   content: {
     flex: 1,
   },
-  categoriesSection: {
-    paddingVertical: theme.spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-  categoriesContainer: {
-    paddingLeft: theme.spacing.lg,
-  },
-  categoriesContent: {
-    paddingRight: theme.spacing.lg,
-  },
-  categoryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginRight: theme.spacing.sm,
+  routeInputSection: {
+    padding: theme.spacing.lg,
     backgroundColor: theme.colors.surface,
-  },
-  categoryItemSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  categoryText: {
-    marginLeft: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.text,
-    fontWeight: '500',
-  },
-  categoryTextSelected: {
-    color: '#fff',
-  },
-  recentSection: {
-    paddingBottom: theme.spacing.lg,
-  },
-  recentContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  recentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  recentText: {
+  inputContainer: {
+    marginBottom: theme.spacing.lg,
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  inputLabel: {
     marginLeft: theme.spacing.sm,
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     fontSize: theme.fonts.sizes.md,
     color: theme.colors.text,
   },
-  destinationsSection: {
-    paddingBottom: theme.spacing.lg,
+  locationButton: {
+    marginLeft: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.primary + '20',
+    borderRadius: theme.borderRadius.lg,
   },
-  sectionHeader: {
+  planRouteButton: {
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    marginTop: theme.spacing.md,
+    ...theme.shadows.medium,
+  },
+  planRouteGradient: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.lg,
+    gap: theme.spacing.sm,
   },
-  resultCount: {
+  planRouteText: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  suggestionsSection: {
+    padding: theme.spacing.lg,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  suggestionTitle: {
+    fontSize: theme.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginLeft: theme.spacing.sm,
+  },
+  suggestionSubtitle: {
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.lg,
   },
   destinationsList: {
-    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.md,
   },
   destinationCard: {
-    marginBottom: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     ...theme.shadows.small,
@@ -694,8 +629,7 @@ const styles = StyleSheet.create({
   },
   destinationHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.md,
+    alignItems: 'center',
   },
   destinationIcon: {
     width: 50,
@@ -732,6 +666,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.sm,
     marginBottom: theme.spacing.xs,
   },
+  categoryText: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.accent,
+    fontWeight: '600',
+  },
   distanceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -740,35 +679,6 @@ const styles = StyleSheet.create({
     marginLeft: theme.spacing.xs,
     fontSize: theme.fonts.sizes.xs,
     color: theme.colors.textSecondary,
-  },
-  destinationActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  safetyIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  safetyText: {
-    marginLeft: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.xs,
-    color: theme.colors.success,
-    fontWeight: '500',
-  },
-  selectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: `${theme.colors.primary}10`,
-    borderRadius: theme.borderRadius.md,
-  },
-  selectButtonText: {
-    marginRight: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.primary,
-    fontWeight: '600',
   },
   safetySection: {
     margin: theme.spacing.lg,
@@ -793,202 +703,34 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.textSecondary,
     lineHeight: 20,
+  },
+  tagsContainer: {
+    marginTop: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  safetyFeatures: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  tagsScrollContent: {
+    paddingRight: theme.spacing.lg,
   },
-  safetyFeature: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  safetyFeatureText: {
-    marginTop: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.xs,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  // Route Planning Styles
-  routePlanningSection: {
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  locationInputContainer: {
-    marginBottom: theme.spacing.md,
-  },
-  locationInputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  locationInputLabel: {
-    marginLeft: theme.spacing.sm,
-    fontSize: theme.fonts.sizes.sm,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  locationInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationInput: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  tagChip: {
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full || 20,
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    fontSize: theme.fonts.sizes.md,
+    marginRight: theme.spacing.sm,
+  },
+  tagChipSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  tagText: {
+    fontSize: theme.fonts.sizes.sm,
     color: theme.colors.text,
+    fontWeight: '500',
   },
-  currentLocationBtn: {
-    marginLeft: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.primary + '20',
-    borderRadius: theme.borderRadius.md,
-  },
-  calculateRouteButton: {
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    marginTop: theme.spacing.md,
-    ...theme.shadows.medium,
-  },
-  disabledButton: {
-    opacity: 0.7,
-  },
-  calculateRouteGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.xl,
-    gap: theme.spacing.sm,
-  },
-  calculateRouteText: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
+  tagTextSelected: {
     color: '#fff',
-  },
-  loadingDots: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  loadingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#fff',
-  },
-  dot1: { opacity: 0.4 },
-  dot2: { opacity: 0.7 },
-  dot3: { opacity: 1 },
-  routeSuggestionsContainer: {
-    marginTop: theme.spacing.lg,
-  },
-  routeSuggestionsTitle: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
-  routeCard: {
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...theme.shadows.small,
-  },
-  routeCardGradient: {
-    padding: theme.spacing.lg,
-  },
-  routeHeader: {
-    marginBottom: theme.spacing.md,
-  },
-  routeNameContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  routeName: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  safetyBadge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
-  },
-  safetyBadgeText: {
-    fontSize: theme.fonts.sizes.xs,
-    fontWeight: 'bold',
-  },
-  routeStats: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-  },
-  routeStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  routeStatText: {
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  routeDescription: {
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
-    lineHeight: 20,
-  },
-  routeDetails: {
-    marginBottom: theme.spacing.md,
-  },
-  routeHighlights: {
-    marginBottom: theme.spacing.sm,
-  },
-  routeDetailsTitle: {
-    fontSize: theme.fonts.sizes.sm,
     fontWeight: '600',
-    color: theme.colors.success,
-    marginBottom: theme.spacing.xs,
-  },
-  routeDetailText: {
-    fontSize: theme.fonts.sizes.xs,
-    color: theme.colors.textSecondary,
-    marginBottom: 2,
-  },
-  routeWarnings: {
-    marginTop: theme.spacing.sm,
-  },
-  routeWarningsTitle: {
-    fontSize: theme.fonts.sizes.sm,
-    fontWeight: '600',
-    color: theme.colors.warning,
-    marginBottom: theme.spacing.xs,
-  },
-  routeWarningText: {
-    fontSize: theme.fonts.sizes.xs,
-    color: theme.colors.textSecondary,
-    marginBottom: 2,
-  },
-  selectRouteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.primary + '10',
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.sm,
-  },
-  selectRouteButtonText: {
-    fontSize: theme.fonts.sizes.md,
-    fontWeight: '600',
-    color: theme.colors.primary,
   },
 });

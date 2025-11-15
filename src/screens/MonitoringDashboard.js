@@ -10,6 +10,7 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 // Maps functionality replaced with visual placeholders for Expo Go compatibility
@@ -216,7 +217,8 @@ export default function MonitoringDashboard({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
       <StatusBar backgroundColor={theme.colors.primary} barStyle="light-content" />
       
       {/* Header */}
@@ -465,11 +467,16 @@ export default function MonitoringDashboard({ navigation, route }) {
           </Animated.View>
         )}
       </ScrollView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

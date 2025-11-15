@@ -10,6 +10,7 @@ import {
   Switch,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -181,13 +182,16 @@ export default function ProfileScreen({ navigation }) {
 
   if (loading || !userProfile) {
     return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading Profile...</Text>
       </View>
+      </SafeAreaView>
     );
   }
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient
@@ -482,10 +486,15 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
