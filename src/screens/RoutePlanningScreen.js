@@ -71,7 +71,7 @@ const mockRoutes = [
 ];
 
 export default function RoutePlanningScreen({ navigation, route }) {
-  const { destination, routeData, startLocation, destinationLocation } = route.params || {};
+  const { destination, routeData, startLocation, destinationLocation, startCoordinates, destinationCoordinates } = route.params || {};
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,6 +81,131 @@ export default function RoutePlanningScreen({ navigation, route }) {
   useEffect(() => {
     loadRoutes();
   }, []);
+
+  // Haversine formula to calculate distance between two coordinates in km
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
+  };
+
+  // Calculate route distance including waypoints
+  const calculateRouteDistance = (coordinates) => {
+    let totalDistance = 0;
+    for (let i = 0; i < coordinates.length - 1; i++) {
+      totalDistance += calculateDistance(
+        coordinates[i].latitude,
+        coordinates[i].longitude,
+        coordinates[i + 1].latitude,
+        coordinates[i + 1].longitude
+      );
+    }
+    return totalDistance;
+  };
+
+  // Generate estimated duration based on distance and route type
+  const calculateDuration = (distance, routeMultiplier = 1) => {
+    const avgSpeed = 45; // Average speed in km/h for hilly terrain
+    const hours = (distance * routeMultiplier) / avgSpeed;
+    const totalMinutes = Math.round(hours * 60);
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  };
+
+  // Generate alternative routes with different waypoints
+  const generateAlternativeRoutes = (start, end, baseDistance) => {
+    const routes = [];
+    
+    // Route 1: Direct/Highway route (shortest distance, best safety)
+    const directDistance = baseDistance;
+    routes.push({
+      id: 1,
+      name: 'Main Highway Route',
+      distance: `${directDistance.toFixed(1)} km`,
+      duration: calculateDuration(directDistance, 1),
+      safetyRating: 2,
+      safetyScore: 85,
+      routeColor: theme.colors.route_safe,
+      highlights: ['Well-maintained roads', '4 hospitals nearby', '3 police stations', 'Good network coverage'],
+      warnings: ['Heavy traffic during peak hours'],
+      coordinates: [start, end],
+    });
+
+    // Route 2: Scenic route (10-15% longer, moderate safety)
+    const scenicDistance = baseDistance * 1.12;
+    const midLat = (start.latitude + end.latitude) / 2 + 0.02;
+    const midLng = (start.longitude + end.longitude) / 2 + 0.015;
+    routes.push({
+      id: 2,
+      name: 'Scenic Mountain Route',
+      distance: `${scenicDistance.toFixed(1)} km`,
+      duration: calculateDuration(scenicDistance, 1.15),
+      safetyRating: 3,
+      safetyScore: 72,
+      routeColor: theme.colors.route_caution,
+      highlights: ['Beautiful mountain views', '2 hospitals nearby', 'Tourism police posts'],
+      warnings: ['Winding mountain roads', 'Weather dependent', 'Limited network in some areas'],
+      coordinates: [
+        start,
+        { latitude: midLat, longitude: midLng },
+        end
+      ],
+    });
+
+    // Route 3: Alternative route (5-8% shorter but higher risk)
+    const alternativeDistance = baseDistance * 0.94;
+    const altMidLat = (start.latitude + end.latitude) / 2 - 0.015;
+    const altMidLng = (start.longitude + end.longitude) / 2 - 0.02;
+    routes.push({
+      id: 3,
+      name: 'Alternative Border Route',
+      distance: `${alternativeDistance.toFixed(1)} km`,
+      duration: calculateDuration(alternativeDistance, 1.25),
+      safetyRating: 4,
+      safetyScore: 45,
+      routeColor: theme.colors.route_danger,
+      highlights: ['Shorter distance', 'Less traffic'],
+      warnings: ['Border area - restricted zones', 'Poor road conditions', 'Limited emergency services', 'No network coverage for 15km stretch'],
+      coordinates: [
+        start,
+        { latitude: altMidLat, longitude: altMidLng },
+        end
+      ],
+    });
+
+    // Route 4: Bypass route (slightly longer, good for avoiding congestion)
+    if (baseDistance > 50) {
+      const bypassDistance = baseDistance * 1.08;
+      const bypassMidLat = (start.latitude + end.latitude) / 2 + 0.01;
+      const bypassMidLng = (start.longitude + end.longitude) / 2 - 0.01;
+      routes.push({
+        id: 4,
+        name: 'City Bypass Route',
+        distance: `${bypassDistance.toFixed(1)} km`,
+        duration: calculateDuration(bypassDistance, 1.05),
+        safetyRating: 2,
+        safetyScore: 78,
+        routeColor: theme.colors.route_safe,
+        highlights: ['Avoids city traffic', 'Express highway sections', '2 rest stops', 'Good network'],
+        warnings: ['Toll charges apply', 'Limited food options'],
+        coordinates: [
+          start,
+          { latitude: bypassMidLat, longitude: bypassMidLng },
+          end
+        ],
+      });
+    }
+
+    return routes;
+  };
 
   const loadRoutes = async () => {
     setIsLoading(true);
@@ -93,10 +218,32 @@ export default function RoutePlanningScreen({ navigation, route }) {
       return;
     }
     
-    // Otherwise use mock data for destinations
+    // Generate routes based on actual coordinates
     setTimeout(() => {
+      let generatedRoutes;
+      
+      if (startCoordinates && destinationCoordinates) {
+        // Calculate actual distance between source and destination
+        const actualDistance = calculateDistance(
+          startCoordinates.latitude,
+          startCoordinates.longitude,
+          destinationCoordinates.latitude,
+          destinationCoordinates.longitude
+        );
+        
+        // Generate 2-4 alternative routes based on actual distance
+        generatedRoutes = generateAlternativeRoutes(
+          startCoordinates,
+          destinationCoordinates,
+          actualDistance
+        );
+      } else {
+        // Fallback to mock data if coordinates not available
+        generatedRoutes = mockRoutes;
+      }
+      
       // Sort routes by safety rating (lower rating = safer)
-      const sortedRoutes = mockRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
+      const sortedRoutes = generatedRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
       setRoutes(sortedRoutes);
       setSelectedRoute(sortedRoutes[0]); // Pre-select safest route
       setIsLoading(false);
