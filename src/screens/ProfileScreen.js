@@ -21,6 +21,7 @@ import {
   updateSafetyScore 
 } from '../utils/blockchainId';
 import { getPublicKey } from '../utils/keys';
+import authService from '../utils/authService';
 
 export default function ProfileScreen({ navigation }) {
   const [userProfile, setUserProfile] = useState(null);
@@ -186,6 +187,34 @@ export default function ProfileScreen({ navigation }) {
 
   const maskDocumentNumber = (type) => {
     return type === 'aadhaar' ? 'XXXX-XXXX-2XXX' : 'XXX-XXXXX89';
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout? You will need to login again to access your profile.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await authService.logout();
+              console.log('✓ Logged out successfully');
+              // Navigate to login screen and reset navigation stack
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Welcome' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (loading || !userProfile) {
@@ -475,6 +504,18 @@ export default function ProfileScreen({ navigation }) {
                 <View style={styles.logStatusDot} />
                 <Text style={styles.logStatusText}>Active</Text>
               </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.settingRow, styles.logoutRow]}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out" size={24} color={theme.colors.error} />
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, styles.logoutText]}>Logout</Text>
+                <Text style={styles.settingValue}>Sign out of your account</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.error} />
             </TouchableOpacity>
           </View>
         </View>
@@ -889,6 +930,16 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.success,
     fontWeight: 'bold',
+  },
+  logoutRow: {
+    marginTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    paddingTop: theme.spacing.md,
+  },
+  logoutText: {
+    color: theme.colors.error,
+    fontWeight: '600',
   },
   contactsCard: {
     backgroundColor: theme.colors.surface,

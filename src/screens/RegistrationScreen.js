@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { generateBlockchainId } from '../utils/blockchainId';
+import { testConnection, userAPI } from '../config/api';
+import authService from '../utils/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +35,20 @@ export default function RegistrationScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [isLogin, setIsLogin] = useState(true); // Toggle between login and register
   const [isLoading, setIsLoading] = useState(false);
+
+  // Test server connection on mount
+  useEffect(() => {
+    const testServer = async () => {
+      console.log('🔍 Testing server connection...');
+      const result = await testConnection();
+      if (result.success) {
+        console.log('✅ SERVER CONNECTED!', result.data);
+      } else {
+        console.error('❌ SERVER CONNECTION FAILED:', result.error);
+      }
+    };
+    testServer();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -95,21 +111,51 @@ export default function RegistrationScreen({ navigation }) {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       if (isLogin) {
-        // For demo purposes, accept any username/password
-        console.log('Navigating to MainTabs...');
+        // Login process - authenticate with username and password
+        console.log('Logging in user...');
         
-        // Navigate directly without alert to avoid timing issues
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
+        // Attempt login with MongoDB using username/password
+        const loginResult = await userAPI.login({
+          username: formData.username,
+          password: formData.password
         });
+        
+        if (loginResult.success) {
+          console.log('✓ Login successful');
+          
+          const userData = loginResult.data.user;
+          
+          // Generate blockchain ID for session
+          const blockchainResult = await generateBlockchainId({
+            name: userData.name,
+            documentType: 'aadhaar',
+            documentNumber: userData.username,
+            phoneNumber: '0000000000',
+            emergencyContacts: [],
+            expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            issueLocation: 'Mobile App Login'
+          });
+          
+          // Save authentication session with user data from MongoDB
+          await authService.saveSession({
+            address: userData.address,
+            name: userData.name,
+            username: userData.username,
+            digitalId: blockchainResult.success ? blockchainResult.digitalId : null,
+            loginTime: new Date().toISOString(),
+          });
+          
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
+        } else {
+          Alert.alert('Login Failed', loginResult.error || 'Invalid username or password');
+        }
       } else {
-        // Registration process with blockchain ID generation
-        console.log('Generating blockchain ID...');
+        // Registration process with blockchain ID generation AND MongoDB storage
+        console.log('Starting registration process...');
         
         // Calculate trip expiry date
         const expiryDate = new Date();
@@ -126,16 +172,61 @@ export default function RegistrationScreen({ navigation }) {
           issueLocation: 'Mobile App Registration'
         };
         
-        // Generate blockchain ID
+        // Step 1: Generate blockchain ID (local ledger)
+        console.log('Step 1: Generating blockchain ID...');
         const blockchainResult = await generateBlockchainId(userData);
         
-        if (blockchainResult.success) {
+        if (!blockchainResult.success) {
+          Alert.alert(
+            'Registration Error',
+            'Failed to generate blockchain ID. Please try again.',
+            [{ text: 'Retry', onPress: () => {} }]
+          );
+          return;
+        }
+        
+        console.log('✓ Blockchain ID generated:', blockchainResult.blockchainId);
+        
+        // Step 2: Store user data in MongoDB
+        console.log('Step 2: Storing user data in MongoDB...');
+        
+        const mongoResult = await userAPI.register({
+          address: blockchainResult.blockchainId,
+          name: formData.fullName,
+          username: formData.username,
+          password: formData.password,
+          encryptedPrivateKey: JSON.stringify({
+            documentType: formData.documentType,
+            documentNumber: formData.documentNumber,
+            phoneNumber: formData.phoneNumber,
+            emergencyContact: formData.emergencyContact,
+            tripDuration: formData.tripDuration,
+            expiryDate: expiryDate.toISOString(),
+            digitalId: blockchainResult.digitalId
+          })
+        });
+        
+        if (mongoResult.success) {
+          console.log('✓ User data stored in MongoDB');
+          
+          // Save authentication session
+          await authService.saveSession({
+            address: blockchainResult.blockchainId,
+            name: formData.fullName,
+            digitalId: blockchainResult.digitalId,
+            documentType: formData.documentType,
+            phoneNumber: formData.phoneNumber,
+            expiryDate: expiryDate.toISOString(),
+            loginTime: new Date().toISOString(),
+          });
+          
           Alert.alert(
             'Registration Successful! 🎉',
             `Welcome to e-Raksha Setu!\n\n` +
             `Your Digital Tourist ID: ${blockchainResult.digitalId}\n\n` +
             `Blockchain ID: ${blockchainResult.blockchainId}\n\n` +
             `Valid until: ${new Date(expiryDate).toLocaleDateString()}\n\n` +
+            `✓ Data stored securely in blockchain and database\n\n` +
             `This unique ID ensures your safety and can be verified by authorities.`,
             [{ 
               text: 'Continue to Biometric Setup', 
@@ -146,15 +237,31 @@ export default function RegistrationScreen({ navigation }) {
             }]
           );
         } else {
+          // Blockchain ID created but MongoDB storage failed
+          console.error('✗ MongoDB storage failed:', mongoResult.error);
+          
           Alert.alert(
-            'Registration Error',
-            'Failed to generate blockchain ID. Please try again.',
-            [{ text: 'Retry', onPress: () => {} }]
+            'Partial Registration',
+            `Your blockchain ID was generated but we couldn't store it in the database.\n\n` +
+            `Blockchain ID: ${blockchainResult.blockchainId}\n\n` +
+            `Error: ${mongoResult.error}\n\n` +
+            `You can still continue, but your data may not be synced.`,
+            [
+              { text: 'Retry Database Sync', onPress: handleSubmit },
+              { 
+                text: 'Continue Anyway', 
+                onPress: () => navigation.navigate('BiometricSetup', {
+                  blockchainId: blockchainResult.blockchainId,
+                  digitalId: blockchainResult.digitalId
+                })
+              }
+            ]
           );
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      console.error('Registration/Login error:', error);
+      Alert.alert('Error', `Something went wrong: ${error.message || 'Please try again.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -441,13 +548,6 @@ export default function RegistrationScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* Demo Info */}
-            <View style={styles.demoInfo}>
-              <Ionicons name="information-circle" size={16} color={theme.colors.info} />
-              <Text style={styles.demoInfoText}>
-                Demo Mode: Use any username/password to continue
-              </Text>
-            </View>
           </View>
         </View>
       </ScrollView>

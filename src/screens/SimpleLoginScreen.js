@@ -15,6 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
+import { userAPI } from '../config/api';
+import { generateBlockchainId } from '../utils/blockchainId';
+import authService from '../utils/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +27,7 @@ export default function RegistrationScreen({ navigation }) {
     password: '',
   });
   const [errors, setErrors] = useState({});
-  const [isLogin, setIsLogin] = useState(true); // Toggle between login and register
+  const [isLogin, setIsLogin] = useState(false); // Toggle between login and register
   const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (field, value) => {
@@ -59,31 +62,90 @@ export default function RegistrationScreen({ navigation }) {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Generate blockchain ID for user identification
+      const blockchainResult = await generateBlockchainId({
+        name: formData.username,
+        documentType: 'aadhaar',
+        documentNumber: formData.username + '_' + Date.now(),
+        phoneNumber: '0000000000',
+        emergencyContacts: [],
+        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        issueLocation: 'Simple Login'
+      });
+      
+      if (!blockchainResult.success) {
+        Alert.alert('Error', 'Failed to generate authentication ID');
+        return;
+      }
       
       if (isLogin) {
-        // For demo purposes, accept any username/password
-        Alert.alert(
-          'Login Successful!',
-          `Welcome back, ${formData.username}!`,
-          [{ 
-            text: 'Continue', 
-            onPress: () => navigation.navigate('MainTabs') // Navigate directly to main app
-          }]
-        );
+        // Login - authenticate with username and password
+        console.log('Attempting login...');
+        const loginResult = await userAPI.login({
+          username: formData.username,
+          password: formData.password
+        });
+        
+        if (loginResult.success) {
+          console.log('✓ Login successful');
+          
+          const userData = loginResult.data.user;
+          
+          // Save authentication session with user data from MongoDB
+          await authService.saveSession({
+            address: userData.address,
+            name: userData.name,
+            username: userData.username,
+            digitalId: blockchainResult.digitalId,
+            loginTime: new Date().toISOString(),
+          });
+          
+          Alert.alert(
+            'Login Successful!',
+            `Welcome back, ${userData.name}!`,
+            [{ 
+              text: 'Continue', 
+              onPress: () => navigation.navigate('MainTabs')
+            }]
+          );
+        } else {
+          Alert.alert('Login Failed', loginResult.error || 'Invalid username or password');
+        }
       } else {
-        Alert.alert(
-          'Registration Successful!',
-          `Account created for ${formData.username}`,
-          [{ 
-            text: 'Login Now', 
-            onPress: () => setIsLogin(true)
-          }]
-        );
+        // Registration - create new user in MongoDB
+        console.log('Registering new user...');
+        const registerResult = await userAPI.register({
+          address: blockchainResult.blockchainId,
+          name: formData.username,
+          username: formData.username,
+          password: formData.password,
+          encryptedPrivateKey: JSON.stringify({
+            digitalId: blockchainResult.digitalId,
+            createdAt: new Date().toISOString()
+          })
+        });
+        
+        if (registerResult.success) {
+          console.log('✓ Registration successful');
+          
+          Alert.alert(
+            'Registration Successful! ✅',
+            `Account created for ${formData.username}\\n\\nYour data has been stored securely in the database.\\n\\nPlease login with your credentials.`,
+            [{ 
+              text: 'Login Now', 
+              onPress: () => setIsLogin(true)
+            }]
+          );
+        } else {
+          const errorMsg = registerResult.data?.error === 'username_taken' 
+            ? 'Username already exists. Please choose another one.'
+            : `Failed to create account: ${registerResult.error}`;
+          Alert.alert('Registration Error', errorMsg);
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      console.error('Authentication error:', error);
+      Alert.alert('Error', `Something went wrong: ${error.message || 'Please try again.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -218,14 +280,6 @@ export default function RegistrationScreen({ navigation }) {
                   {isLogin ? 'Register here' : 'Login here'}
                 </Text>
               </TouchableOpacity>
-            </View>
-
-            {/* Demo Info */}
-            <View style={styles.demoInfo}>
-              <Ionicons name="information-circle" size={16} color={theme.colors.info} />
-              <Text style={styles.demoInfoText}>
-                Demo Mode: Use any username/password to continue
-              </Text>
             </View>
           </View>
         </View>
