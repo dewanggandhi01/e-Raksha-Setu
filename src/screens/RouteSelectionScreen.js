@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ScrollView,
   Alert,
   Platform,
-  FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,107 +16,42 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { theme } from '../styles/theme';
 
-// Comprehensive tourist destinations across Northeast India with coordinates
-const popularDestinations = [
-  // Assam
-  { id: 1, name: 'Kaziranga National Park', state: 'Assam', category: 'Wildlife', image: '🦏', lat: 26.5775, lng: 93.1711 },
-  { id: 2, name: 'Majuli Island', state: 'Assam', category: 'Cultural', image: '🏝️', lat: 26.9500, lng: 94.2167 },
-  { id: 3, name: 'Kamakhya Temple', state: 'Assam', category: 'Spiritual', image: '🕉️', lat: 26.1656, lng: 91.7050 },
-  { id: 4, name: 'Manas National Park', state: 'Assam', category: 'Wildlife', image: '🐘', lat: 26.6761, lng: 90.9635 },
-  { id: 5, name: 'Pobitora Wildlife Sanctuary', state: 'Assam', category: 'Wildlife', image: '🦏', lat: 26.2500, lng: 92.0333 },
-  { id: 6, name: 'Umananda Island', state: 'Assam', category: 'Spiritual', image: '🛕', lat: 26.1813, lng: 91.7417 },
-  { id: 7, name: 'Assam State Zoo', state: 'Assam', category: 'Wildlife', image: '🦁', lat: 26.1678, lng: 91.7778 },
-  { id: 8, name: 'Srimanta Sankardev Kalakshetra', state: 'Assam', category: 'Cultural', image: '🎭', lat: 26.1431, lng: 91.7898 },
-  { id: 9, name: 'Navagraha Temple', state: 'Assam', category: 'Spiritual', image: '🕉️', lat: 26.1811, lng: 91.8067 },
-  { id: 10, name: 'Haflong Hill Station', state: 'Assam', category: 'Nature', image: '🏔️', lat: 25.1669, lng: 93.0175 },
-  { id: 11, name: 'Sivasagar Tank', state: 'Assam', category: 'Cultural', image: '🏛️', lat: 26.9840, lng: 94.6411 },
-  { id: 12, name: 'Gibbon Wildlife Sanctuary', state: 'Assam', category: 'Wildlife', image: '🐵', lat: 26.7000, lng: 94.5667 },
-  
-  // Meghalaya
-  { id: 13, name: 'Shillong Peak', state: 'Meghalaya', category: 'Nature', image: '⛰️', lat: 25.5544, lng: 91.9014 },
-  { id: 14, name: 'Elephant Falls', state: 'Meghalaya', category: 'Nature', image: '💧', lat: 25.5275, lng: 91.8906 },
-  { id: 15, name: 'Umiam Lake', state: 'Meghalaya', category: 'Nature', image: '🌊', lat: 25.6645, lng: 91.9159 },
-  { id: 16, name: 'Don Bosco Museum', state: 'Meghalaya', category: 'Cultural', image: '🏛️', lat: 25.5788, lng: 91.8933 },
-  { id: 17, name: 'Mawlynnong Village', state: 'Meghalaya', category: 'Cultural', image: '🏡', lat: 25.2025, lng: 91.9464 },
-  { id: 18, name: 'Cherrapunji', state: 'Meghalaya', category: 'Nature', image: '🌧️', lat: 25.2654, lng: 91.7321 },
-  { id: 19, name: 'Living Root Bridges', state: 'Meghalaya', category: 'Nature', image: '🌉', lat: 25.2583, lng: 91.7056 },
-  { id: 20, name: 'Nohkalikai Falls', state: 'Meghalaya', category: 'Nature', image: '💦', lat: 25.2758, lng: 91.7197 },
-  
-  // Arunachal Pradesh
-  { id: 21, name: 'Tawang Monastery', state: 'Arunachal Pradesh', category: 'Spiritual', image: '🏛️', lat: 27.5864, lng: 91.8597 },
-  { id: 22, name: 'Ziro Valley', state: 'Arunachal Pradesh', category: 'Nature', image: '🏔️', lat: 27.5445, lng: 93.8293 },
-  { id: 23, name: 'Sela Pass', state: 'Arunachal Pradesh', category: 'Nature', image: '⛰️', lat: 27.3567, lng: 92.0635 },
-  { id: 24, name: 'Namdapha National Park', state: 'Arunachal Pradesh', category: 'Wildlife', image: '🐆', lat: 27.5167, lng: 96.4167 },
-  { id: 25, name: 'Itanagar Wildlife Sanctuary', state: 'Arunachal Pradesh', category: 'Wildlife', image: '🦌', lat: 27.0844, lng: 93.6053 },
-  
-  // Nagaland
-  { id: 26, name: 'Kohima War Cemetery', state: 'Nagaland', category: 'Historical', image: '🕊️', lat: 25.6640, lng: 94.1078 },
-  { id: 27, name: 'Dzukou Valley', state: 'Nagaland', category: 'Nature', image: '🌸', lat: 25.5500, lng: 94.0833 },
-  { id: 28, name: 'Japfu Peak', state: 'Nagaland', category: 'Nature', image: '🏔️', lat: 25.6000, lng: 94.0500 },
-  
-  // Manipur
-  { id: 29, name: 'Loktak Lake', state: 'Manipur', category: 'Nature', image: '🌊', lat: 24.5167, lng: 93.8167 },
-  { id: 30, name: 'Kangla Fort', state: 'Manipur', category: 'Historical', image: '🏰', lat: 24.8108, lng: 93.9536 },
-  { id: 31, name: 'Keibul Lamjao National Park', state: 'Manipur', category: 'Wildlife', image: '🦌', lat: 24.5167, lng: 93.8333 },
-  
-  // Tripura
-  { id: 32, name: 'Ujjayanta Palace', state: 'Tripura', category: 'Historical', image: '🏰', lat: 23.8368, lng: 91.2791 },
-  { id: 33, name: 'Neermahal', state: 'Tripura', category: 'Historical', image: '🏛️', lat: 23.5767, lng: 91.5333 },
-  { id: 34, name: 'Sepahijala Wildlife Sanctuary', state: 'Tripura', category: 'Wildlife', image: '🦜', lat: 23.6333, lng: 91.3833 },
-  
-  // Mizoram
-  { id: 35, name: 'Vantawng Falls', state: 'Mizoram', category: 'Nature', image: '💧', lat: 23.4833, lng: 92.9833 },
-  { id: 36, name: 'Phawngpui Blue Mountain', state: 'Mizoram', category: 'Nature', image: '⛰️', lat: 22.6167, lng: 93.0333 },
-];
-
-const categories = [
-  { id: 'all', name: 'All', icon: 'grid' },
-  { id: 'wildlife', name: 'Wildlife', icon: 'leaf' },
-  { id: 'cultural', name: 'Cultural', icon: 'library' },
-  { id: 'spiritual', name: 'Spiritual', icon: 'flower' },
-  { id: 'nature', name: 'Nature', icon: 'mountain' },
-  { id: 'adventure', name: 'Adventure', icon: 'trail-sign' },
-  { id: 'historical', name: 'Historical', icon: 'time' },
-];
-
 export default function RouteSelectionScreen({ navigation }) {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [startLocation, setStartLocation] = useState('');
   const [startCoordinates, setStartCoordinates] = useState(null);
   const [destinationLocation, setDestinationLocation] = useState('');
-  const [nearbyDestinations, setNearbyDestinations] = useState([]);
-  const [allDestinations, setAllDestinations] = useState([]);
-  const [availableTags, setAvailableTags] = useState([]);
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [destinationCoordinates, setDestinationCoordinates] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [sourceSearchResults, setSourceSearchResults] = useState([]);
+  const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
+  const [isSearchingSource, setIsSearchingSource] = useState(false);
+  const [destinationSearchResults, setDestinationSearchResults] = useState([]);
+  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
+  const [isSearchingDestination, setIsSearchingDestination] = useState(false);
+  const [estimatedDistance, setEstimatedDistance] = useState(null);
+  
+  const sourceSearchTimeout = useRef(null);
+  const destinationSearchTimeout = useRef(null);
 
   useEffect(() => {
     getCurrentLocation();
   }, []);
 
+  // Calculate distance whenever both source and destination coordinates are available
   useEffect(() => {
-    // Update nearby destinations when source location changes
-    if (startLocation.trim() && startCoordinates) {
-      fetchNearbyDestinations(startLocation, startCoordinates);
-    } else {
-      setNearbyDestinations([]);
-      setAllDestinations([]);
-      setAvailableTags([]);
-      setSelectedTags([]);
-    }
-  }, [startLocation, startCoordinates]);
-
-  useEffect(() => {
-    // Filter destinations based on selected tags
-    if (selectedTags.length === 0) {
-      setNearbyDestinations(allDestinations);
-    } else {
-      const filtered = allDestinations.filter(dest =>
-        selectedTags.includes(dest.category)
+    if (startCoordinates && destinationCoordinates) {
+      const distance = calculateDistance(
+        startCoordinates.latitude,
+        startCoordinates.longitude,
+        destinationCoordinates.latitude,
+        destinationCoordinates.longitude
       );
-      setNearbyDestinations(filtered);
+      setEstimatedDistance(distance);
+    } else {
+      setEstimatedDistance(null);
     }
-  }, [selectedTags, allDestinations]);
+  }, [startCoordinates, destinationCoordinates]);
 
   const getCurrentLocation = async () => {
     try {
@@ -147,14 +82,122 @@ export default function RouteSelectionScreen({ navigation }) {
     return distance;
   };
 
+  // Geocode search function to get location suggestions
+  const searchLocations = async (query) => {
+    try {
+      const results = await Location.geocodeAsync(query);
+      
+      if (results && results.length > 0) {
+        const limitedResults = results.slice(0, Math.min(8, results.length));
+        
+        const formattedResults = await Promise.all(
+          limitedResults.map(async (result, index) => {
+            try {
+              const addresses = await Location.reverseGeocodeAsync({
+                latitude: result.latitude,
+                longitude: result.longitude,
+              });
+              
+              if (addresses && addresses.length > 0) {
+                const address = addresses[0];
+                
+                let name = '';
+                let detailsParts = [];
+                
+                const isValidName = (str) => {
+                  if (!str || str.length < 2) return false;
+                  const alphaCount = (str.match(/[a-zA-Z]/g) || []).length;
+                  return alphaCount > str.length / 2;
+                };
+                
+                if (address.city && isValidName(address.city)) {
+                  name = address.city;
+                } else if (address.district && isValidName(address.district)) {
+                  name = address.district;
+                } else if (address.subregion && isValidName(address.subregion)) {
+                  name = address.subregion;
+                } else if (address.region && isValidName(address.region)) {
+                  name = address.region;
+                } else if (address.street && isValidName(address.street)) {
+                  name = address.street;
+                } else if (address.name && isValidName(address.name)) {
+                  name = address.name;
+                } else {
+                  name = query;
+                }
+                
+                if (address.district && address.district !== name && isValidName(address.district)) {
+                  detailsParts.push(address.district);
+                }
+                if (address.region && address.region !== name && address.region !== address.city && isValidName(address.region)) {
+                  detailsParts.push(address.region);
+                }
+                if (address.country && isValidName(address.country)) {
+                  detailsParts.push(address.country);
+                }
+                
+                const details = detailsParts.length > 0 
+                  ? detailsParts.join(', ') 
+                  : (address.country || 'Location');
+                
+                return {
+                  id: `${result.latitude}-${result.longitude}-${index}`,
+                  name: name,
+                  details: details,
+                  latitude: result.latitude,
+                  longitude: result.longitude,
+                  fullAddress: address,
+                };
+              }
+            } catch (error) {
+              // Silent error handling
+            }
+            
+            return null;
+          })
+        );
+        
+        const validResults = formattedResults.filter(Boolean);
+        const uniqueResults = [];
+        const seenNames = new Set();
+        
+        for (const result of validResults) {
+          const normalizedName = result.name.toLowerCase().trim();
+          if (!seenNames.has(normalizedName)) {
+            seenNames.add(normalizedName);
+            uniqueResults.push(result);
+          }
+        }
+        
+        const finalResults = uniqueResults.slice(0, 4);
+        
+        if (finalResults.length >= 2) {
+          return finalResults;
+        } else if (finalResults.length === 1) {
+          const single = finalResults[0];
+          const alternative = {
+            ...single,
+            id: `${single.latitude}-${single.longitude}-alt`,
+            details: `Coordinates: ${single.latitude.toFixed(4)}, ${single.longitude.toFixed(4)}`
+          };
+          return [single, alternative];
+        } else if (finalResults.length > 0) {
+          return finalResults;
+        }
+      }
+      
+      return [];
+    } catch (error) {
+      return [];
+    }
+  };
+
   const useCurrentLocationAsStart = async () => {
     setIsLoadingLocation(true);
     try {
-      // Check location permission first
       let { status } = await Location.getForegroundPermissionsAsync();
       
       if (status !== 'granted') {
-        // Request permission if not granted
         const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
         
         if (newStatus !== 'granted') {
@@ -163,20 +206,25 @@ export default function RouteSelectionScreen({ navigation }) {
             'Please enable location access in your device settings to use this feature.',
             [{ text: 'OK' }]
           );
+          setIsLoadingLocation(false);
           return;
         }
         status = newStatus;
       }
 
-      // Get current location
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
       
       setCurrentLocation(location);
 
+      const coords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      };
+      setStartCoordinates(coords);
+
       try {
-        // Reverse geocoding to get place name
         const address = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
@@ -184,30 +232,23 @@ export default function RouteSelectionScreen({ navigation }) {
         
         if (address && address.length > 0) {
           const place = address[0];
-          // Format address with city, region, or name
           const locationName = place.city || place.subregion || place.region || 
                               place.name || place.district || 
                               `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
           setStartLocation(locationName);
-          setStartCoordinates({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude
-          });
         } else {
-          setStartLocation(`${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`);
-          setStartCoordinates({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude
-          });
+          const coordsString = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
+          setStartLocation(coordsString);
         }
       } catch (error) {
         console.error('Error reverse geocoding:', error);
-        setStartLocation(`${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`);
-        setStartCoordinates({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        });
+        const coordsString = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
+        setStartLocation(coordsString);
       }
+      
+      setShowSourceSuggestions(false);
+      setSourceSearchResults([]);
+      
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert(
@@ -220,135 +261,137 @@ export default function RouteSelectionScreen({ navigation }) {
     }
   };
 
-  const fetchNearbyDestinations = async (sourceLocation, coordinates) => {
-    if (!coordinates) return;
-
-    // Calculate distances and filter destinations within 100km
-    const nearbyPlaces = popularDestinations
-      .map(dest => {
-        const distance = calculateDistance(
-          coordinates.latitude,
-          coordinates.longitude,
-          dest.lat,
-          dest.lng
-        );
-        return {
-          ...dest,
-          distance: `${Math.round(distance)} km`,
-          distanceValue: distance
-        };
-      })
-      .filter(dest => dest.distanceValue <= 100) // Only show destinations within 100km
-      .sort((a, b) => a.distanceValue - b.distanceValue); // Sort by distance (closest first)
-    
-    setAllDestinations(nearbyPlaces);
-    setNearbyDestinations(nearbyPlaces);
-    
-    if (nearbyPlaces.length === 0) {
-      Alert.alert(
-        'No Nearby Destinations',
-        'No tourist destinations found within 100km of your location. Try a different source location.',
-        [{ text: 'OK' }]
-      );
-    }
-    
-    // Extract unique categories for tags
-    const uniqueCategories = [...new Set(nearbyPlaces.map(dest => dest.category))];
-    setAvailableTags(uniqueCategories);
-    setSelectedTags([]);
-  };
-
   const handleStartLocationChange = async (text) => {
     setStartLocation(text);
+    setStartCoordinates(null);
     
-    // Clear coordinates when user starts typing
+    // Clear previous timeout
+    if (sourceSearchTimeout.current) {
+      clearTimeout(sourceSearchTimeout.current);
+    }
+    
     if (text.trim() === '') {
-      setStartCoordinates(null);
+      setSourceSearchResults([]);
+      setShowSourceSuggestions(false);
+      setIsSearchingSource(false);
+      return;
     }
+
+    // Only search after 3 characters
+    if (text.trim().length < 3) {
+      setSourceSearchResults([]);
+      setShowSourceSuggestions(false);
+      setIsSearchingSource(false);
+      return;
+    }
+
+    // Show loading state
+    setIsSearchingSource(true);
+    setShowSourceSuggestions(true);
+
+    // Debounce the search
+    sourceSearchTimeout.current = setTimeout(async () => {
+      const results = await searchLocations(text.trim());
+      setSourceSearchResults(results);
+      setIsSearchingSource(false);
+      setShowSourceSuggestions(results.length > 0);
+    }, 500); // Wait 500ms after user stops typing
   };
 
-  const handleStartLocationSubmit = async () => {
-    if (!startLocation.trim()) return;
-
-    try {
-      // Try to geocode the entered location
-      const geocoded = await Location.geocodeAsync(startLocation);
-      
-      if (geocoded && geocoded.length > 0) {
-        const { latitude, longitude } = geocoded[0];
-        setStartCoordinates({ latitude, longitude });
-      } else {
-        Alert.alert(
-          'Location Not Found',
-          'Could not find the specified location. Please try a different location or use current location.',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('Error geocoding location:', error);
-      Alert.alert(
-        'Error',
-        'Unable to find location. Please check your internet connection and try again.',
-        [{ text: 'OK' }]
-      );
-    }
+  const handleSourceSelect = (location) => {
+    const coords = {
+      latitude: location.latitude,
+      longitude: location.longitude
+    };
+    
+    setStartLocation(location.name);
+    setStartCoordinates(coords);
+    setShowSourceSuggestions(false);
+    setSourceSearchResults([]);
   };
 
-  const handlePlanRoute = () => {
+  const handleDestinationChange = (text) => {
+    setDestinationLocation(text);
+    setDestinationCoordinates(null);
+    
+    // Clear previous timeout
+    if (destinationSearchTimeout.current) {
+      clearTimeout(destinationSearchTimeout.current);
+    }
+    
+    if (text.trim() === '') {
+      setDestinationSearchResults([]);
+      setShowDestinationSuggestions(false);
+      setIsSearchingDestination(false);
+      return;
+    }
+
+    // Only search after 3 characters
+    if (text.trim().length < 3) {
+      setDestinationSearchResults([]);
+      setShowDestinationSuggestions(false);
+      setIsSearchingDestination(false);
+      return;
+    }
+
+    // Show loading state
+    setIsSearchingDestination(true);
+    setShowDestinationSuggestions(true);
+
+    // Debounce the search
+    destinationSearchTimeout.current = setTimeout(async () => {
+      const results = await searchLocations(text.trim());
+      setDestinationSearchResults(results);
+      setIsSearchingDestination(false);
+      setShowDestinationSuggestions(results.length > 0);
+    }, 500); // Wait 500ms after user stops typing
+  };
+
+  const handlePlanRoute = async () => {
     if (!startLocation.trim() || !destinationLocation.trim()) {
       Alert.alert('Missing Information', 'Please enter both source and destination locations.');
       return;
     }
 
+    if (!startCoordinates) {
+      Alert.alert(
+        'Invalid Source Location', 
+        'Please select your source location from the dropdown suggestions or use the current location button.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (!destinationCoordinates) {
+      Alert.alert(
+        'Invalid Destination',
+        'Please select your destination from the dropdown suggestions.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+
+
     navigation.navigate('RoutePlanning', { 
       startLocation,
-      destinationLocation
+      destinationLocation,
+      startCoordinates,
+      destinationCoordinates
     });
   };
 
-  const handleDestinationSelect = (destination) => {
-    setDestinationLocation(destination.name);
+  const handleDestinationSelect = (location) => {
+    const coords = {
+      latitude: location.latitude,
+      longitude: location.longitude
+    };
+    
+    setDestinationLocation(location.name);
+    setDestinationCoordinates(coords);
+    setShowDestinationSuggestions(false);
+    setDestinationSearchResults([]);
   };
-
-  const toggleTag = (tag) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter(t => t !== tag));
-    } else {
-      setSelectedTags([...selectedTags, tag]);
-    }
-  };
-
-  const renderDestinationCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.destinationCard}
-      onPress={() => handleDestinationSelect(item)}
-      activeOpacity={0.7}
-    >
-      <LinearGradient
-        colors={[theme.colors.surface, `${theme.colors.primary}05`]}
-        style={styles.destinationGradient}
-      >
-        <View style={styles.destinationHeader}>
-          <View style={styles.destinationIcon}>
-            <Text style={styles.destinationEmoji}>{item.image}</Text>
-          </View>
-          <View style={styles.destinationInfo}>
-            <Text style={styles.destinationName}>{item.name}</Text>
-            <Text style={styles.destinationState}>{item.state}</Text>
-          </View>
-          <View style={styles.destinationMeta}>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{item.category}</Text>
-            </View>
-            <View style={styles.distanceContainer}>
-              <Ionicons name="location" size={12} color={theme.colors.textSecondary} />
-              <Text style={styles.distanceText}>{item.distance}</Text>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -381,15 +424,24 @@ export default function RouteSelectionScreen({ navigation }) {
                 <Text style={styles.inputLabel}>Source Location</Text>
               </View>
               <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter starting location..."
-                  placeholderTextColor={theme.colors.textSecondary}
-                  value={startLocation}
-                  onChangeText={handleStartLocationChange}
-                  onSubmitEditing={handleStartLocationSubmit}
-                  returnKeyType="search"
-                />
+                <View style={styles.inputWithIndicator}>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      startCoordinates && styles.textInputValid
+                    ]}
+                    placeholder="Search or enter starting location..."
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={startLocation}
+                    onChangeText={handleStartLocationChange}
+                    onFocus={() => setShowSourceSuggestions(sourceSearchResults.length > 0)}
+                  />
+                  {startCoordinates && (
+                    <View style={styles.validIndicator}>
+                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+                    </View>
+                  )}
+                </View>
                 <TouchableOpacity 
                   style={styles.locationButton}
                   onPress={useCurrentLocationAsStart}
@@ -403,6 +455,45 @@ export default function RouteSelectionScreen({ navigation }) {
                   )}
                 </TouchableOpacity>
               </View>
+              
+              {/* Source Suggestions Dropdown */}
+              {showSourceSuggestions && (
+                <View style={styles.suggestionsDropdown}>
+                  <ScrollView 
+                    style={styles.suggestionsScroll}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                  >
+                    {isSearchingSource ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={styles.loadingText}>Searching locations...</Text>
+                      </View>
+                    ) : sourceSearchResults.length > 0 ? (
+                      sourceSearchResults.map((location) => (
+                        <TouchableOpacity
+                          key={location.id}
+                          style={styles.suggestionItem}
+                          onPress={() => handleSourceSelect(location)}
+                        >
+                          <View style={styles.suggestionIcon}>
+                            <Ionicons name="location" size={20} color={theme.colors.primary} />
+                          </View>
+                          <View style={styles.suggestionInfo}>
+                            <Text style={styles.suggestionName}>{location.name}</Text>
+                            <Text style={styles.suggestionDetails}>{location.details}</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={styles.noResultsContainer}>
+                        <Text style={styles.noResultsText}>No locations found</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
             </View>
 
             {/* Destination Input */}
@@ -411,14 +502,78 @@ export default function RouteSelectionScreen({ navigation }) {
                 <Ionicons name="location" size={18} color={theme.colors.error} />
                 <Text style={styles.inputLabel}>Destination</Text>
               </View>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter destination..."
-                placeholderTextColor={theme.colors.textSecondary}
-                value={destinationLocation}
-                onChangeText={setDestinationLocation}
-              />
+              <View style={styles.inputWithIndicator}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Search or enter destination..."
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={destinationLocation}
+                  onChangeText={handleDestinationChange}
+                  onFocus={() => setShowDestinationSuggestions(destinationSearchResults.length > 0)}
+                />
+              </View>
+              
+              {/* Destination Suggestions Dropdown */}
+              {showDestinationSuggestions && (
+                <View style={styles.suggestionsDropdown}>
+                  <ScrollView 
+                    style={styles.suggestionsScroll}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                  >
+                    {isSearchingDestination ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={styles.loadingText}>Searching locations...</Text>
+                      </View>
+                    ) : destinationSearchResults.length > 0 ? (
+                      destinationSearchResults.map((location) => (
+                        <TouchableOpacity
+                          key={location.id}
+                          style={styles.suggestionItem}
+                          onPress={() => handleDestinationSelect(location)}
+                        >
+                          <View style={styles.suggestionIcon}>
+                            <Ionicons name="location" size={20} color={theme.colors.error} />
+                          </View>
+                          <View style={styles.suggestionInfo}>
+                            <Text style={styles.suggestionName}>{location.name}</Text>
+                            <Text style={styles.suggestionDetails}>{location.details}</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={styles.noResultsContainer}>
+                        <Text style={styles.noResultsText}>No locations found</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
             </View>
+
+            {/* Distance Display */}
+            {estimatedDistance !== null && (
+              <View style={styles.distanceDisplay}>
+                <View style={styles.distanceIconContainer}>
+                  <Ionicons name="navigate-circle" size={24} color={theme.colors.primary} />
+                </View>
+                <View style={styles.distanceInfoContainer}>
+                  <Text style={styles.distanceLabel}>Estimated Distance</Text>
+                  <Text style={styles.distanceValue}>
+                    {estimatedDistance < 1 
+                      ? `${(estimatedDistance * 1000).toFixed(0)} meters`
+                      : `${estimatedDistance.toFixed(2)} km`
+                    }
+                  </Text>
+                </View>
+                <View style={styles.distanceBadge}>
+                  <Ionicons name="airplane" size={16} color={theme.colors.accent} />
+                  <Text style={styles.distanceBadgeText}>Direct</Text>
+                </View>
+              </View>
+            )}
 
             {/* Plan Route Button */}
             <TouchableOpacity 
@@ -435,55 +590,84 @@ export default function RouteSelectionScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* Nearby Tourist Places Suggestions */}
-          {nearbyDestinations.length > 0 && (
-            <View style={styles.suggestionsSection}>
-              <View style={styles.suggestionHeader}>
-                <Ionicons name="compass" size={24} color={theme.colors.primary} />
-                <Text style={styles.suggestionTitle}>Nearby Tourist Places</Text>
-              </View>
-              <Text style={styles.suggestionSubtitle}>
-                Popular destinations near your source location
-              </Text>
-              
-              {/* Dynamic Filter Tags */}
-              {availableTags.length > 0 && (
-                <View style={styles.tagsContainer}>
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.tagsScrollContent}
-                  >
-                    {availableTags.map((tag) => (
-                      <TouchableOpacity
-                        key={tag}
-                        style={[
-                          styles.tagChip,
-                          selectedTags.includes(tag) && styles.tagChipSelected
-                        ]}
-                        onPress={() => toggleTag(tag)}
-                      >
-                        <Text style={[
-                          styles.tagText,
-                          selectedTags.includes(tag) && styles.tagTextSelected
-                        ]}>
-                          {tag}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-              
-              <FlatList
-                data={nearbyDestinations}
-                renderItem={renderDestinationCard}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-                contentContainerStyle={styles.destinationsList}
-              />
+          {/* Tourism Exploration Section */}
+          <View style={styles.tourismSection}>
+            <View style={styles.tourismSectionHeader}>
+              <Ionicons name="compass" size={28} color={theme.colors.primary} />
+              <Text style={styles.tourismSectionTitle}>Discover Northeast India</Text>
             </View>
-          )}
+            
+            <TouchableOpacity 
+              style={styles.tourismButton}
+              onPress={() => navigation.navigate('Tourism', { destinationLocation })}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.tourismGradient}
+              >
+                <View style={styles.tourismContent}>
+                  <View style={styles.tourismLeft}>
+                    <View style={styles.tourismIcon}>
+                      <Ionicons name="location" size={24} color="#fff" />
+                    </View>
+                    <View style={styles.tourismInfo}>
+                      <Text style={styles.tourismTitle}>Places to Visit</Text>
+                      <Text style={styles.tourismSubtitle}>26+ attractions</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+                </View>
+                
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.tourismGrid}>
+              <TouchableOpacity 
+                style={styles.tourismGridItem}
+                onPress={() => navigation.navigate('Tourism', { destinationLocation })}
+              >
+                <LinearGradient
+                  colors={['#f093fb', '#f5576c']}
+                  style={styles.tourismGridGradient}
+                >
+                  <Ionicons name="bed" size={28} color="#fff" />
+                  <Text style={styles.tourismGridText}>Hotels</Text>
+                  <Text style={styles.tourismGridSubtext}>Book Stay</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.tourismGridItem}
+                onPress={() => navigation.navigate('Tourism', { destinationLocation })}
+              >
+                <LinearGradient
+                  colors={['#4facfe', '#00f2fe']}
+                  style={styles.tourismGridGradient}
+                >
+                  <Ionicons name="calendar" size={28} color="#fff" />
+                  <Text style={styles.tourismGridText}>Festivals</Text>
+                  <Text style={styles.tourismGridSubtext}>Culture</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Help Text */}
+          <View style={styles.helpSection}>
+            <View style={styles.helpHeader}>
+              <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
+              <Text style={styles.helpTitle}>How to use</Text>
+            </View>
+            <Text style={styles.helpText}>
+              • Type at least 3 characters in the source or destination field{'\n'}
+              • Select a location from the suggestions that appear{'\n'}
+              • Or use the location button to set your current location as source{'\n'}
+              • Once both locations are selected, tap "Plan Route"
+            </Text>
+          </View>
 
           {/* Safety Information */}
           <View style={styles.safetySection}>
@@ -562,16 +746,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  inputWithIndicator: {
+    flex: 1,
+    position: 'relative',
+  },
   textInput: {
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
+    paddingRight: theme.spacing.xl + theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
     fontSize: theme.fonts.sizes.md,
     color: theme.colors.text,
+  },
+  textInputValid: {
+    borderColor: theme.colors.success,
+    borderWidth: 2,
+  },
+  validIndicator: {
+    position: 'absolute',
+    right: theme.spacing.md,
+    top: '50%',
+    transform: [{ translateY: -10 }],
   },
   locationButton: {
     marginLeft: theme.spacing.sm,
@@ -704,33 +903,232 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 20,
   },
-  tagsContainer: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  tagsScrollContent: {
-    paddingRight: theme.spacing.lg,
-  },
-  tagChip: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full || 20,
-    backgroundColor: theme.colors.background,
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 40,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    marginRight: theme.spacing.sm,
+    maxHeight: 250,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  tagChipSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+  suggestionsScroll: {
+    maxHeight: 250,
   },
-  tagText: {
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.text,
-    fontWeight: '500',
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  tagTextSelected: {
-    color: '#fff',
+  suggestionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${theme.colors.primary}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
+  suggestionEmoji: {
+    fontSize: 20,
+  },
+  suggestionInfo: {
+    flex: 1,
+  },
+  suggestionName: {
+    fontSize: theme.fonts.sizes.md,
     fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  suggestionDetails: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  loadingText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  noResultsContainer: {
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  helpSection: {
+    margin: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: `${theme.colors.primary}10`,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}20`,
+  },
+  helpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  helpTitle: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  helpText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+    lineHeight: 22,
+  },
+  distanceDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${theme.colors.primary}05`,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}20`,
+  },
+  distanceIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
+  distanceInfoContainer: {
+    flex: 1,
+  },
+  distanceLabel: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  distanceValue: {
+    fontSize: theme.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${theme.colors.accent}20`,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+    gap: 4,
+  },
+  distanceBadgeText: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.accent,
+    fontWeight: '600',
+  },
+  tourismSection: {
+    margin: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl || 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  tourismSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  tourismSectionTitle: {
+    fontSize: theme.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  tourismButton: {
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  tourismGradient: {
+    padding: theme.spacing.md,
+  },
+  tourismContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tourismLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  tourismIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
+  tourismInfo: {
+    flex: 1,
+  },
+  tourismTitle: {
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  tourismSubtitle: {
+    fontSize: theme.fonts.sizes.sm,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  tourismGrid: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  tourismGridItem: {
+    flex: 1,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.small,
+  },
+  tourismGridGradient: {
+    padding: theme.spacing.md,
+    alignItems: 'center',
+    minHeight: 100,
+    justifyContent: 'center',
+  },
+  tourismGridText: {
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: '600',
+    color: '#fff',
+    marginTop: theme.spacing.xs,
+  },
+  tourismGridSubtext: {
+    fontSize: theme.fonts.sizes.xs,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
   },
 });
