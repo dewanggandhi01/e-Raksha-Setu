@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { Camera } from 'expo-camera';
@@ -70,7 +71,15 @@ export default function PermissionsScreen({ navigation }) {
       const locationStatus = await Location.getForegroundPermissionsAsync();
       
       // Check Notifications
-      const notificationStatus = await Notifications.getPermissionsAsync();
+      let notificationStatus = { status: 'undetermined' };
+      // expo-notifications remote push is not supported in Expo Go (SDK 53+).
+      // Avoid calling notifications APIs when running inside Expo Go to prevent warnings/errors.
+      if (Constants.appOwnership !== 'expo') {
+        notificationStatus = await Notifications.getPermissionsAsync();
+      } else {
+        // Keep status as undetermined so UI can prompt the user to use a development build for notifications
+        notificationStatus = { status: 'undetermined' };
+      }
       
       // Check Camera
       const cameraStatus = await Camera.getCameraPermissionsAsync();
@@ -122,6 +131,21 @@ export default function PermissionsScreen({ navigation }) {
           break;
 
         case 'notifications':
+          // If running in Expo Go, remote notifications are not supported. Show guidance instead.
+          if (Constants.appOwnership === 'expo') {
+            Alert.alert(
+              'Notifications Limited in Expo Go',
+              'Push notifications are limited in Expo Go. To test push notifications, create a development build or run the app in a dev client.',
+              [{ text: 'OK' }]
+            );
+            // Set a local state indicating permissions remain ungranted in Expo Go
+            setPermissions(prev => ({
+              ...prev,
+              notifications: { status: 'undetermined', granted: false }
+            }));
+            break;
+          }
+
           result = await Notifications.requestPermissionsAsync();
           setPermissions(prev => ({
             ...prev,

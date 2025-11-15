@@ -6,7 +6,14 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "hh": "hardhat",
+    "compile": "hardhat compile",
+    "node": "hardhat node",
+    "deploy": "hardhat run --network localhost ./scripts/deploy.js",
+    "interact": "hardhat run --network localhost ./scripts/interact.js",
+    "deploy:local": "node ./scripts/deploy.js",
+    "interact:local": "node ./scripts/interact.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -37,5 +44,24 @@
     "react-native-svg": "^15.12.1",
     "react-native-webview": "13.15.0"
   },
-  "private": true
+  "private": true,
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dewanggandhi01/e-Raksha-Setu.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dewanggandhi01/e-Raksha-Setu/issues"
+  },
+  "homepage": "https://github.com/dewanggandhi01/e-Raksha-Setu#readme",
+  "devDependencies": {
+    "hardhat": "^2.26.0",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "ethers": "^6.9.0",
+    "dotenv": "^16.3.1"
+  }
 }
