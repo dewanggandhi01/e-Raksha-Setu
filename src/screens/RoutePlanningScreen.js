@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-// Maps functionality replaced with visual placeholders for Expo Go compatibility
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { theme } from '../styles/theme';
 
 const { width } = Dimensions.get('window');
@@ -121,88 +121,173 @@ export default function RoutePlanningScreen({ navigation, route }) {
     return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
   };
 
-  // Generate alternative routes with different waypoints
-  const generateAlternativeRoutes = (start, end, baseDistance) => {
+  // Fetch actual road route from OSRM routing service
+  const fetchRoadRoute = async (start, end, alternativeIndex = 0) => {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?alternatives=${alternativeIndex > 0 ? 'true' : 'false'}&geometries=geojson&overview=full&steps=true`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        const routeIndex = Math.min(alternativeIndex, data.routes.length - 1);
+        const route = data.routes[routeIndex];
+        
+        // Convert GeoJSON coordinates to react-native-maps format
+        const coordinates = route.geometry.coordinates.map(coord => ({
+          latitude: coord[1],
+          longitude: coord[0]
+        }));
+        
+        // Return route info
+        return {
+          coordinates,
+          distance: route.distance / 1000, // Convert meters to km
+          duration: route.duration / 60 // Convert seconds to minutes
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching route:', error);
+      return null;
+    }
+  };
+
+  // Fetch route with slight offset to get alternative paths
+  const fetchAlternativeRoute = async (start, end, offsetLat, offsetLng) => {
+    try {
+      // Create an intermediate waypoint to force different route
+      const midpoint = {
+        latitude: (start.latitude + end.latitude) / 2 + offsetLat,
+        longitude: (start.longitude + end.longitude) / 2 + offsetLng
+      };
+      
+      const url = `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${midpoint.longitude},${midpoint.latitude};${end.longitude},${end.latitude}?geometries=geojson&overview=full`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        
+        const coordinates = route.geometry.coordinates.map(coord => ({
+          latitude: coord[1],
+          longitude: coord[0]
+        }));
+        
+        return {
+          coordinates,
+          distance: route.distance / 1000,
+          duration: route.duration / 60
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching alternative route:', error);
+      return null;
+    }
+  };
+
+  // Generate alternative routes with actual road data
+  const generateAlternativeRoutes = async (start, end) => {
     const routes = [];
     
-    // Route 1: Direct/Highway route (shortest distance, best safety)
-    const directDistance = baseDistance;
-    routes.push({
-      id: 1,
-      name: 'Main Highway Route',
-      distance: `${directDistance.toFixed(1)} km`,
-      duration: calculateDuration(directDistance, 1),
-      safetyRating: 2,
-      safetyScore: 85,
-      routeColor: theme.colors.route_safe,
-      highlights: ['Well-maintained roads', '4 hospitals nearby', '3 police stations', 'Good network coverage'],
-      warnings: ['Heavy traffic during peak hours'],
-      coordinates: [start, end],
-    });
+    try {
+      // Fetch main direct route
+      const mainRoute = await fetchRoadRoute(start, end, 0);
+      if (mainRoute) {
+        const duration = mainRoute.duration;
+        const hrs = Math.floor(duration / 60);
+        const mins = Math.round(duration % 60);
+        const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+        
+        routes.push({
+          id: 1,
+          name: 'Main Highway Route',
+          distance: `${mainRoute.distance.toFixed(1)} km`,
+          duration: durationStr,
+          safetyRating: 2,
+          safetyScore: 85,
+          routeColor: '#4CAF50',
+          highlights: ['Well-maintained roads', '4 hospitals nearby', '3 police stations', 'Good network coverage'],
+          warnings: ['Heavy traffic during peak hours'],
+          coordinates: mainRoute.coordinates,
+        });
+      }
 
-    // Route 2: Scenic route (10-15% longer, moderate safety)
-    const scenicDistance = baseDistance * 1.12;
-    const midLat = (start.latitude + end.latitude) / 2 + 0.02;
-    const midLng = (start.longitude + end.longitude) / 2 + 0.015;
-    routes.push({
-      id: 2,
-      name: 'Scenic Mountain Route',
-      distance: `${scenicDistance.toFixed(1)} km`,
-      duration: calculateDuration(scenicDistance, 1.15),
-      safetyRating: 3,
-      safetyScore: 72,
-      routeColor: theme.colors.route_caution,
-      highlights: ['Beautiful mountain views', '2 hospitals nearby', 'Tourism police posts'],
-      warnings: ['Winding mountain roads', 'Weather dependent', 'Limited network in some areas'],
-      coordinates: [
-        start,
-        { latitude: midLat, longitude: midLng },
-        end
-      ],
-    });
+      // Fetch scenic route (with northern detour)
+      const scenicRoute = await fetchAlternativeRoute(start, end, 0.05, 0.03);
+      if (scenicRoute) {
+        const duration = scenicRoute.duration;
+        const hrs = Math.floor(duration / 60);
+        const mins = Math.round(duration % 60);
+        const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+        
+        routes.push({
+          id: 2,
+          name: 'Scenic Mountain Route',
+          distance: `${scenicRoute.distance.toFixed(1)} km`,
+          duration: durationStr,
+          safetyRating: 3,
+          safetyScore: 72,
+          routeColor: '#FF9800',
+          highlights: ['Beautiful mountain views', '2 hospitals nearby', 'Tourism police posts'],
+          warnings: ['Winding mountain roads', 'Weather dependent', 'Limited network in some areas'],
+          coordinates: scenicRoute.coordinates,
+        });
+      }
 
-    // Route 3: Alternative route (5-8% shorter but higher risk)
-    const alternativeDistance = baseDistance * 0.94;
-    const altMidLat = (start.latitude + end.latitude) / 2 - 0.015;
-    const altMidLng = (start.longitude + end.longitude) / 2 - 0.02;
-    routes.push({
-      id: 3,
-      name: 'Alternative Border Route',
-      distance: `${alternativeDistance.toFixed(1)} km`,
-      duration: calculateDuration(alternativeDistance, 1.25),
-      safetyRating: 4,
-      safetyScore: 45,
-      routeColor: theme.colors.route_danger,
-      highlights: ['Shorter distance', 'Less traffic'],
-      warnings: ['Border area - restricted zones', 'Poor road conditions', 'Limited emergency services', 'No network coverage for 15km stretch'],
-      coordinates: [
-        start,
-        { latitude: altMidLat, longitude: altMidLng },
-        end
-      ],
-    });
+      // Fetch alternative route (with southern detour)
+      const alternativeRoute = await fetchAlternativeRoute(start, end, -0.04, -0.02);
+      if (alternativeRoute) {
+        const duration = alternativeRoute.duration;
+        const hrs = Math.floor(duration / 60);
+        const mins = Math.round(duration % 60);
+        const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+        
+        routes.push({
+          id: 3,
+          name: 'Alternative Border Route',
+          distance: `${alternativeRoute.distance.toFixed(1)} km`,
+          duration: durationStr,
+          safetyRating: 4,
+          safetyScore: 45,
+          routeColor: '#F44336',
+          highlights: ['Shorter distance', 'Less traffic'],
+          warnings: ['Border area - restricted zones', 'Poor road conditions', 'Limited emergency services', 'No network coverage for 15km stretch'],
+          coordinates: alternativeRoute.coordinates,
+        });
+      }
 
-    // Route 4: Bypass route (slightly longer, good for avoiding congestion)
-    if (baseDistance > 50) {
-      const bypassDistance = baseDistance * 1.08;
-      const bypassMidLat = (start.latitude + end.latitude) / 2 + 0.01;
-      const bypassMidLng = (start.longitude + end.longitude) / 2 - 0.01;
-      routes.push({
-        id: 4,
-        name: 'City Bypass Route',
-        distance: `${bypassDistance.toFixed(1)} km`,
-        duration: calculateDuration(bypassDistance, 1.05),
-        safetyRating: 2,
-        safetyScore: 78,
-        routeColor: theme.colors.route_safe,
-        highlights: ['Avoids city traffic', 'Express highway sections', '2 rest stops', 'Good network'],
-        warnings: ['Toll charges apply', 'Limited food options'],
-        coordinates: [
-          start,
-          { latitude: bypassMidLat, longitude: bypassMidLng },
-          end
-        ],
-      });
+      // Fetch bypass route (with western detour) for longer distances
+      const directDistance = mainRoute ? mainRoute.distance : 0;
+      if (directDistance > 50) {
+        const bypassRoute = await fetchAlternativeRoute(start, end, 0.02, -0.03);
+        if (bypassRoute) {
+          const duration = bypassRoute.duration;
+          const hrs = Math.floor(duration / 60);
+          const mins = Math.round(duration % 60);
+          const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+          
+          routes.push({
+            id: 4,
+            name: 'City Bypass Route',
+            distance: `${bypassRoute.distance.toFixed(1)} km`,
+            duration: durationStr,
+            safetyRating: 2,
+            safetyScore: 78,
+            routeColor: '#2196F3',
+            highlights: ['Avoids city traffic', 'Express highway sections', '2 rest stops', 'Good network'],
+            warnings: ['Toll charges apply', 'Limited food options'],
+            coordinates: bypassRoute.coordinates,
+          });
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error generating routes:', error);
     }
 
     return routes;
@@ -220,23 +305,14 @@ export default function RoutePlanningScreen({ navigation, route }) {
     }
     
     // Generate routes based on actual coordinates
-    setTimeout(() => {
+    try {
       let generatedRoutes;
       
       if (startCoordinates && destinationCoordinates) {
-        // Calculate actual distance between source and destination
-        const actualDistance = calculateDistance(
-          startCoordinates.latitude,
-          startCoordinates.longitude,
-          destinationCoordinates.latitude,
-          destinationCoordinates.longitude
-        );
-        
-        // Generate 2-4 alternative routes based on actual distance
-        generatedRoutes = generateAlternativeRoutes(
+        // Fetch actual road routes from OSRM
+        generatedRoutes = await generateAlternativeRoutes(
           startCoordinates,
-          destinationCoordinates,
-          actualDistance
+          destinationCoordinates
         );
       } else {
         // Fallback to mock data if coordinates not available
@@ -248,7 +324,14 @@ export default function RoutePlanningScreen({ navigation, route }) {
       setRoutes(sortedRoutes);
       setSelectedRoute(sortedRoutes[0]); // Pre-select safest route
       setIsLoading(false);
-    }, 2000);
+    } catch (error) {
+      console.error('Error loading routes:', error);
+      // Fallback to mock data on error
+      const sortedRoutes = mockRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
+      setRoutes(sortedRoutes);
+      setSelectedRoute(sortedRoutes[0]);
+      setIsLoading(false);
+    }
   };
 
   const getSafetyColor = (rating) => {
@@ -553,30 +636,67 @@ export default function RoutePlanningScreen({ navigation, route }) {
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Map Preview */}
           <View style={styles.mapContainer}>
-            <View style={styles.mapPlaceholder}>
-              <LinearGradient
-                colors={['#E3F2FD', '#BBDEFB']}
+            {startCoordinates && destinationCoordinates ? (
+              <MapView
                 style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={{
+                  latitude: (startCoordinates.latitude + destinationCoordinates.latitude) / 2,
+                  longitude: (startCoordinates.longitude + destinationCoordinates.longitude) / 2,
+                  latitudeDelta: Math.abs(startCoordinates.latitude - destinationCoordinates.latitude) * 2 || 0.5,
+                  longitudeDelta: Math.abs(startCoordinates.longitude - destinationCoordinates.longitude) * 2 || 0.5,
+                }}
               >
-                <Ionicons name="map" size={80} color={theme.colors.primary} style={{ opacity: 0.6 }} />
-                <Text style={styles.mapPlaceholderText}>Interactive Map View</Text>
-                <Text style={styles.mapPlaceholderSubtext}>
-                  {selectedRoute ? `Route: ${selectedRoute.name}` : 'Select a route to preview'}
-                </Text>
-                {selectedRoute && (
-                  <View style={styles.routeInfoOverlay}>
-                    <View style={styles.routeDetail}>
-                      <Ionicons name="location" size={16} color={theme.colors.primary} />
-                      <Text style={styles.routeDetailText}>Distance: {selectedRoute.distance}</Text>
-                    </View>
-                    <View style={styles.routeDetail}>
-                      <Ionicons name="time" size={16} color={theme.colors.primary} />
-                      <Text style={styles.routeDetailText}>Duration: {selectedRoute.duration}</Text>
-                    </View>
-                  </View>
-                )}
-              </LinearGradient>
-            </View>
+                {/* Origin Marker */}
+                <Marker
+                  coordinate={{
+                    latitude: startCoordinates.latitude,
+                    longitude: startCoordinates.longitude,
+                  }}
+                  title={startLocation || 'Start'}
+                  description="Starting Point"
+                  pinColor="green"
+                />
+                
+                {/* Destination Marker */}
+                <Marker
+                  coordinate={{
+                    latitude: destinationCoordinates.latitude,
+                    longitude: destinationCoordinates.longitude,
+                  }}
+                  title={destinationLocation || 'Destination'}
+                  description="Destination Point"
+                  pinColor="red"
+                />
+                
+                {/* Draw all routes as polylines */}
+                {routes.map((routeItem) => (
+                  <Polyline
+                    key={routeItem.id}
+                    coordinates={routeItem.coordinates}
+                    strokeColor={
+                      selectedRoute?.id === routeItem.id
+                        ? routeItem.routeColor
+                        : `${routeItem.routeColor}60`
+                    }
+                    strokeWidth={selectedRoute?.id === routeItem.id ? 6 : 3}
+                  />
+                ))}
+              </MapView>
+            ) : (
+              <View style={styles.mapPlaceholder}>
+                <LinearGradient
+                  colors={['#E3F2FD', '#BBDEFB']}
+                  style={styles.map}
+                >
+                  <Ionicons name="map" size={80} color={theme.colors.primary} style={{ opacity: 0.6 }} />
+                  <Text style={styles.mapPlaceholderText}>Interactive Map View</Text>
+                  <Text style={styles.mapPlaceholderSubtext}>
+                    Loading route coordinates...
+                  </Text>
+                </LinearGradient>
+              </View>
+            )}
             
             <View style={styles.mapOverlay}>
               <View style={styles.mapInfo}>
@@ -763,14 +883,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapContainer: {
-    height: 200,
+    height: 300,
     margin: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     position: 'relative',
   },
   map: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   mapOverlay: {
     position: 'absolute',
