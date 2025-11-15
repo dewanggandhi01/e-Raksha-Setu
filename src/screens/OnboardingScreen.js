@@ -122,7 +122,7 @@ export default function OnboardingScreen({ navigation }) {
             <>
               <FeatureItem icon="checkmark-circle" text="Blockchain Security" />
               <FeatureItem icon="time" text="Trip Duration Validity" />
-              <FeatureItem icon="fingerprint" text="Biometric Verification" />
+              <FeatureItem icon="lock-closed" text="Biometric Verification" />
             </>
           )}
           {index === 1 && (

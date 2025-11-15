@@ -20,11 +20,13 @@ import {
   updateUserProfile, 
   updateSafetyScore 
 } from '../utils/blockchainId';
+import { getPublicKey } from '../utils/keys';
 
 export default function ProfileScreen({ navigation }) {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [realTimeTracking, setRealTimeTracking] = useState(false);
+  const [publicKey, setPublicKey] = useState(null);
 
   useEffect(() => {
     loadUserProfile();
@@ -41,6 +43,12 @@ export default function ProfileScreen({ navigation }) {
         if (profileResult.success) {
           setUserProfile(profileResult.profile);
           setRealTimeTracking(profileResult.profile.realTimeTrackingEnabled);
+          try {
+            const pk = await getPublicKey();
+            if (pk) setPublicKey(pk);
+          } catch (e) {
+            console.warn('Failed to load public key', e);
+          }
         } else {
           Alert.alert('Error', 'Failed to load profile data');
         }
@@ -244,6 +252,20 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={styles.digitalIdTitle}>Digital Tourist ID</Text>
                 <Text style={styles.digitalIdNumber}>{userProfile.digitalId}</Text>
                 <Text style={styles.blockchainIdNumber}>{userProfile.blockchainId}</Text>
+                {publicKey ? (
+                  <View style={styles.publicKeyRow}>
+                    <View style={styles.publicKeyInfo}>
+                      <Text style={styles.publicKeyLabel}>Public Key</Text>
+                      <Text style={styles.publicKeyText}>{publicKey}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.privateKeyButton}
+                      onPress={() => navigation.navigate('PrivateKey')}
+                    >
+                      <Text style={styles.privateKeyButtonText}>Show Private Key</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
                 
                 <View style={styles.idCardFooter}>
                   <View style={styles.documentInfo}>
@@ -896,6 +918,40 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.primary,
     fontWeight: 'bold',
+  },
+  publicKeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.sm,
+    width: '100%'
+  },
+  publicKeyInfo: {
+    flex: 1,
+    marginRight: theme.spacing.md,
+  },
+  publicKeyLabel: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  publicKeyText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.text,
+    fontWeight: '600',
+    marginTop: theme.spacing.xs,
+  },
+  privateKeyButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  privateKeyButtonText: {
+    color: '#fff',
+    fontSize: theme.fonts.sizes.xs,
+    fontWeight: 'bold'
   },
   noContactsText: {
     fontSize: theme.fonts.sizes.md,
