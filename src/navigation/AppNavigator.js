@@ -15,7 +15,11 @@ import RouteSelectionScreen from '../screens/RouteSelectionScreen';
 import RoutePlanningScreen from '../screens/RoutePlanningScreen';
 import MonitoringDashboard from '../screens/MonitoringDashboard';
 import EmergencyScreen from '../screens/EmergencyScreen';
-import { BiometricSetupScreen, DigitalIDScreen, ProfileScreen, SettingsScreen } from '../screens/PlaceholderScreens';
+import BiometricSetupScreen from '../screens/BiometricSetupScreen';
+import DigitalIDScreen from '../screens/DigitalIDScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import HelpSupportScreen from '../screens/HelpSupportScreen';
+import { SettingsScreen } from '../screens/PlaceholderScreens';
 
 import { theme } from '../styles/theme';
 
@@ -81,7 +85,10 @@ function MainTabs() {
       <Tab.Screen 
         name="Profile" 
         component={ProfileScreen}
-        options={{ title: 'My Profile' }}
+        options={{ 
+          title: 'My Profile',
+          headerShown: false 
+        }}
       />
     </Tab.Navigator>
   );
@@ -160,6 +167,11 @@ function CombinedStack() {
         name="Settings" 
         component={SettingsScreen}
         options={{ title: 'Settings' }}
+      />
+      <Stack.Screen 
+        name="HelpSupport" 
+        component={HelpSupportScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

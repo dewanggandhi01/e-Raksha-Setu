@@ -14,7 +14,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import * as Contacts from 'expo-contacts';
 import { theme } from '../styles/theme';
 
 export default function EmergencyScreen({ navigation, route }) {

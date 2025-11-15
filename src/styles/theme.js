@@ -1,8 +1,8 @@
 // Theme configuration for e-Raksha Setu App
 export const theme = {
   colors: {
-    primary: '#FF6B35', // Indian saffron orange - energetic and safe
-    secondary: '#004E89', // Deep blue - trust and security
+    primary: '#2596be', // Primary blue - trust and reliability
+    secondary: '#1e7ba0', // Darker blue variant - depth and security
     accent: '#2E8B57', // Sea green - safety and nature
     background: '#F8F9FA',
     surface: '#FFFFFF',
@@ -17,7 +17,7 @@ export const theme = {
     // Safety rating colors
     safest: '#2E8B57', // Green for rating 1-2
     moderate: '#FFA500', // Orange for rating 3
-    danger: '#FF6B35', // Orange-red for rating 4
+    danger: '#2596be', // Primary blue for rating 4
     highest_danger: '#DC3545', // Red for rating 5
     
     // Emergency colors
@@ -29,7 +29,7 @@ export const theme = {
     route_safe: '#2E8B57',
     route_caution: '#FFA500',
     route_danger: '#DC3545',
-    current_location: '#004E89',
+    current_location: '#2596be',
   },
   
   fonts: {

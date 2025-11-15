@@ -43,6 +43,13 @@ export default function RouteSelectionScreen({ navigation }) {
   const [recentSearches, setRecentSearches] = useState([
     'Shillong', 'Guwahati', 'Itanagar', 'Dimapur'
   ]);
+  
+  // New route planning states
+  const [startLocation, setStartLocation] = useState('');
+  const [destinationLocation, setDestinationLocation] = useState('');
+  const [showRouteInputs, setShowRouteInputs] = useState(false);
+  const [routeSuggestions, setRouteSuggestions] = useState([]);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
 
   useEffect(() => {
     getCurrentLocation();
@@ -90,6 +97,80 @@ export default function RouteSelectionScreen({ navigation }) {
 
   const handleDestinationSelect = (destination) => {
     navigation.navigate('RoutePlanning', { destination });
+  };
+
+  const calculateRoute = async () => {
+    if (!startLocation.trim() || !destinationLocation.trim()) {
+      Alert.alert('Missing Information', 'Please enter both starting location and destination.');
+      return;
+    }
+
+    setIsCalculatingRoute(true);
+    
+    try {
+      // Simulate route calculation (in real app, use routing API)
+      const mockRoutes = [
+        {
+          id: 1,
+          name: 'Fastest Route',
+          duration: '2h 45m',
+          distance: '125 km',
+          safetyScore: 85,
+          description: 'Via main highways - fastest but moderate traffic',
+          highlights: ['Well-lit roads', 'Regular fuel stations', 'Good network coverage'],
+          warnings: ['Heavy traffic 9-11 AM', 'Construction work at km 45']
+        },
+        {
+          id: 2,
+          name: 'Safest Route',
+          duration: '3h 15m',
+          distance: '138 km',
+          safetyScore: 95,
+          description: 'Via scenic route - safer with better emergency services',
+          highlights: ['24/7 police patrolling', 'Multiple hospitals', 'Tourist-friendly areas'],
+          warnings: ['Longer travel time', 'Mountain roads']
+        },
+        {
+          id: 3,
+          name: 'Scenic Route',
+          duration: '3h 45m',
+          distance: '145 km',
+          safetyScore: 78,
+          description: 'Beautiful landscapes - perfect for leisure travel',
+          highlights: ['Amazing viewpoints', 'Local attractions', 'Photo opportunities'],
+          warnings: ['Remote areas', 'Limited network in some areas']
+        }
+      ];
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setRouteSuggestions(mockRoutes);
+      
+    } catch (error) {
+      console.error('Route calculation error:', error);
+      Alert.alert('Error', 'Unable to calculate route. Please try again.');
+    } finally {
+      setIsCalculatingRoute(false);
+    }
+  };
+
+  const selectRoute = (route) => {
+    navigation.navigate('RoutePlanning', { 
+      startLocation,
+      destinationLocation,
+      routeData: routeSuggestions,
+      selectedRoute: route
+    });
+  };
+
+  const useCurrentLocationAsStart = async () => {
+    if (currentLocation) {
+      const address = `${currentLocation.coords.latitude.toFixed(4)}, ${currentLocation.coords.longitude.toFixed(4)}`;
+      setStartLocation(address);
+    } else {
+      Alert.alert('Location Unavailable', 'Please enable location services to use current location.');
+    }
   };
 
   const renderDestinationCard = ({ item }) => (
@@ -174,14 +255,23 @@ export default function RouteSelectionScreen({ navigation }) {
         </TouchableOpacity>
         
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Choose Destination</Text>
+          <Text style={styles.headerTitle}>
+            {showRouteInputs ? 'Plan Your Route' : 'Choose Destination'}
+          </Text>
           <Text style={styles.headerSubtitle}>
-            Where would you like to go today?
+            {showRouteInputs ? 'Enter start and destination locations' : 'Where would you like to go today?'}
           </Text>
         </View>
         
-        <TouchableOpacity style={styles.mapButton}>
-          <Ionicons name="map" size={24} color="#fff" />
+        <TouchableOpacity 
+          style={styles.toggleButton}
+          onPress={() => setShowRouteInputs(!showRouteInputs)}
+        >
+          <Ionicons 
+            name={showRouteInputs ? "list" : "navigate"} 
+            size={24} 
+            color="#fff" 
+          />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -211,6 +301,159 @@ export default function RouteSelectionScreen({ navigation }) {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Route Planning Section */}
+        {showRouteInputs && (
+          <View style={styles.routePlanningSection}>
+            <Text style={styles.sectionTitle}>Route Planning</Text>
+            
+            {/* Starting Location Input */}
+            <View style={styles.locationInputContainer}>
+              <View style={styles.locationInputHeader}>
+                <Ionicons name="radio-button-on" size={16} color={theme.colors.success} />
+                <Text style={styles.locationInputLabel}>Starting Location</Text>
+              </View>
+              <View style={styles.locationInputRow}>
+                <TextInput
+                  style={styles.locationInput}
+                  placeholder="Enter starting location..."
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={startLocation}
+                  onChangeText={setStartLocation}
+                />
+                <TouchableOpacity 
+                  style={styles.currentLocationBtn}
+                  onPress={useCurrentLocationAsStart}
+                >
+                  <Ionicons name="locate" size={16} color={theme.colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Destination Input */}
+            <View style={styles.locationInputContainer}>
+              <View style={styles.locationInputHeader}>
+                <Ionicons name="location" size={16} color={theme.colors.error} />
+                <Text style={styles.locationInputLabel}>Destination</Text>
+              </View>
+              <TextInput
+                style={styles.locationInput}
+                placeholder="Enter destination..."
+                placeholderTextColor={theme.colors.textSecondary}
+                value={destinationLocation}
+                onChangeText={setDestinationLocation}
+              />
+            </View>
+
+            {/* Calculate Route Button */}
+            <TouchableOpacity 
+              style={[styles.calculateRouteButton, isCalculatingRoute && styles.disabledButton]}
+              onPress={calculateRoute}
+              disabled={isCalculatingRoute}
+            >
+              <LinearGradient
+                colors={[theme.colors.primary, theme.colors.secondary]}
+                style={styles.calculateRouteGradient}
+              >
+                {isCalculatingRoute ? (
+                  <>
+                    <Text style={styles.calculateRouteText}>Calculating...</Text>
+                    <View style={styles.loadingDots}>
+                      <View style={[styles.loadingDot, styles.dot1]} />
+                      <View style={[styles.loadingDot, styles.dot2]} />
+                      <View style={[styles.loadingDot, styles.dot3]} />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="map" size={20} color="#fff" />
+                    <Text style={styles.calculateRouteText}>Calculate Best Route</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Route Suggestions */}
+            {routeSuggestions.length > 0 && (
+              <View style={styles.routeSuggestionsContainer}>
+                <Text style={styles.routeSuggestionsTitle}>Route Options</Text>
+                {routeSuggestions.map((route) => (
+                  <TouchableOpacity
+                    key={route.id}
+                    style={styles.routeCard}
+                    onPress={() => selectRoute(route)}
+                  >
+                    <LinearGradient
+                      colors={[theme.colors.surface, `${theme.colors.primary}05`]}
+                      style={styles.routeCardGradient}
+                    >
+                      <View style={styles.routeHeader}>
+                        <View style={styles.routeNameContainer}>
+                          <Text style={styles.routeName}>{route.name}</Text>
+                          <View style={[styles.safetyBadge, {
+                            backgroundColor: route.safetyScore >= 90 ? theme.colors.success + '20' : 
+                                            route.safetyScore >= 80 ? theme.colors.warning + '20' : 
+                                            theme.colors.error + '20'
+                          }]}>
+                            <Text style={[styles.safetyBadgeText, {
+                              color: route.safetyScore >= 90 ? theme.colors.success : 
+                                     route.safetyScore >= 80 ? theme.colors.warning : 
+                                     theme.colors.error
+                            }]}>
+                              {route.safetyScore}% Safe
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.routeStats}>
+                          <View style={styles.routeStat}>
+                            <Ionicons name="time" size={14} color={theme.colors.textSecondary} />
+                            <Text style={styles.routeStatText}>{route.duration}</Text>
+                          </View>
+                          <View style={styles.routeStat}>
+                            <Ionicons name="speedometer" size={14} color={theme.colors.textSecondary} />
+                            <Text style={styles.routeStatText}>{route.distance}</Text>
+                          </View>
+                        </View>
+                      </View>
+                      
+                      <Text style={styles.routeDescription}>{route.description}</Text>
+                      
+                      <View style={styles.routeDetails}>
+                        <View style={styles.routeHighlights}>
+                          <Text style={styles.routeDetailsTitle}>✓ Highlights:</Text>
+                          {route.highlights.map((highlight, index) => (
+                            <Text key={index} style={styles.routeDetailText}>• {highlight}</Text>
+                          ))}
+                        </View>
+                        
+                        {route.warnings.length > 0 && (
+                          <View style={styles.routeWarnings}>
+                            <Text style={styles.routeWarningsTitle}>⚠ Warnings:</Text>
+                            {route.warnings.map((warning, index) => (
+                              <Text key={index} style={styles.routeWarningText}>• {warning}</Text>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                      
+                      <TouchableOpacity 
+                        style={styles.selectRouteButton}
+                        onPress={() => selectRoute(route)}
+                      >
+                        <Text style={styles.selectRouteButtonText}>Select This Route</Text>
+                        <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+                      </TouchableOpacity>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Original Categories - only show when not in route planning mode */}
+        {!showRouteInputs && (
+          <>
         {/* Categories */}
         <View style={styles.categoriesSection}>
           <Text style={styles.sectionTitle}>Categories</Text>
@@ -289,6 +532,8 @@ export default function RouteSelectionScreen({ navigation }) {
             </View>
           </View>
         </View>
+        </>
+        )}
       </ScrollView>
     </View>
   );
@@ -322,7 +567,7 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.sm,
     color: 'rgba(255,255,255,0.9)',
   },
-  mapButton: {
+  toggleButton: {
     padding: theme.spacing.sm,
   },
   searchSection: {
@@ -563,5 +808,187 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.xs,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+  },
+  // Route Planning Styles
+  routePlanningSection: {
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  locationInputContainer: {
+    marginBottom: theme.spacing.md,
+  },
+  locationInputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  locationInputLabel: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.fonts.sizes.sm,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  locationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationInput: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+  },
+  currentLocationBtn: {
+    marginLeft: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.primary + '20',
+    borderRadius: theme.borderRadius.md,
+  },
+  calculateRouteButton: {
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    marginTop: theme.spacing.md,
+    ...theme.shadows.medium,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  calculateRouteGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
+    gap: theme.spacing.sm,
+  },
+  calculateRouteText: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  loadingDots: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  loadingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+  },
+  dot1: { opacity: 0.4 },
+  dot2: { opacity: 0.7 },
+  dot3: { opacity: 1 },
+  routeSuggestionsContainer: {
+    marginTop: theme.spacing.lg,
+  },
+  routeSuggestionsTitle: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
+  routeCard: {
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.small,
+  },
+  routeCardGradient: {
+    padding: theme.spacing.lg,
+  },
+  routeHeader: {
+    marginBottom: theme.spacing.md,
+  },
+  routeNameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  routeName: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  safetyBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+  },
+  safetyBadgeText: {
+    fontSize: theme.fonts.sizes.xs,
+    fontWeight: 'bold',
+  },
+  routeStats: {
+    flexDirection: 'row',
+    gap: theme.spacing.lg,
+  },
+  routeStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  routeStatText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  routeDescription: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
+    lineHeight: 20,
+  },
+  routeDetails: {
+    marginBottom: theme.spacing.md,
+  },
+  routeHighlights: {
+    marginBottom: theme.spacing.sm,
+  },
+  routeDetailsTitle: {
+    fontSize: theme.fonts.sizes.sm,
+    fontWeight: '600',
+    color: theme.colors.success,
+    marginBottom: theme.spacing.xs,
+  },
+  routeDetailText: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  routeWarnings: {
+    marginTop: theme.spacing.sm,
+  },
+  routeWarningsTitle: {
+    fontSize: theme.fonts.sizes.sm,
+    fontWeight: '600',
+    color: theme.colors.warning,
+    marginBottom: theme.spacing.xs,
+  },
+  routeWarningText: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  selectRouteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.primary + '10',
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.sm,
+  },
+  selectRouteButtonText: {
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.primary,
   },
 });

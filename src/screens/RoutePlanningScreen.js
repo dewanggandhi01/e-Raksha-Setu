@@ -70,7 +70,7 @@ const mockRoutes = [
 ];
 
 export default function RoutePlanningScreen({ navigation, route }) {
-  const { destination } = route.params;
+  const { destination, routeData, startLocation, destinationLocation } = route.params || {};
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +83,16 @@ export default function RoutePlanningScreen({ navigation, route }) {
 
   const loadRoutes = async () => {
     setIsLoading(true);
-    // Simulate API call for route analysis
+    
+    // If we have route data from route planning, use it
+    if (routeData && routeData.length > 0) {
+      setRoutes(routeData);
+      setSelectedRoute(routeData[0]); // Pre-select first route
+      setIsLoading(false);
+      return;
+    }
+    
+    // Otherwise use mock data for destinations
     setTimeout(() => {
       // Sort routes by safety rating (lower rating = safer)
       const sortedRoutes = mockRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
@@ -265,7 +274,12 @@ export default function RoutePlanningScreen({ navigation, route }) {
         </TouchableOpacity>
         
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Route to {destination.name}</Text>
+          <Text style={styles.headerTitle}>
+            {startLocation && destinationLocation 
+              ? `${startLocation} to ${destinationLocation}`
+              : `Route to ${destination?.name || 'Destination'}`
+            }
+          </Text>
           <Text style={styles.headerSubtitle}>
             AI-powered safety analysis complete
           </Text>

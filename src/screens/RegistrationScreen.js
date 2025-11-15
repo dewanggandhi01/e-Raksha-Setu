@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
+import { generateBlockchainId } from '../utils/blockchainId';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +22,12 @@ export default function RegistrationScreen({ navigation }) {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
+    fullName: '',
+    documentType: 'aadhaar', // 'aadhaar' or 'passport'
+    documentNumber: '',
+    phoneNumber: '',
+    emergencyContact: '',
+    tripDuration: '',
   });
   const [errors, setErrors] = useState({});
   const [isLogin, setIsLogin] = useState(true); // Toggle between login and register
@@ -47,6 +54,35 @@ export default function RegistrationScreen({ navigation }) {
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
+
+    if (!isLogin) {
+      // Additional validation for registration
+      if (!formData.fullName.trim()) {
+        newErrors.fullName = 'Full name is required';
+      }
+      
+      if (!formData.documentNumber.trim()) {
+        newErrors.documentNumber = `${formData.documentType === 'aadhaar' ? 'Aadhaar' : 'Passport'} number is required`;
+      } else if (formData.documentType === 'aadhaar' && formData.documentNumber.length !== 12) {
+        newErrors.documentNumber = 'Aadhaar number must be 12 digits';
+      } else if (formData.documentType === 'passport' && formData.documentNumber.length < 6) {
+        newErrors.documentNumber = 'Invalid passport number';
+      }
+      
+      if (!formData.phoneNumber.trim()) {
+        newErrors.phoneNumber = 'Phone number is required';
+      } else if (formData.phoneNumber.length !== 10) {
+        newErrors.phoneNumber = 'Phone number must be 10 digits';
+      }
+      
+      if (!formData.emergencyContact.trim()) {
+        newErrors.emergencyContact = 'Emergency contact is required';
+      }
+      
+      if (!formData.tripDuration.trim()) {
+        newErrors.tripDuration = 'Trip duration is required';
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -71,14 +107,50 @@ export default function RegistrationScreen({ navigation }) {
           routes: [{ name: 'MainTabs' }],
         });
       } else {
-        Alert.alert(
-          'Registration Successful!',
-          `Account created for ${formData.username}`,
-          [{ 
-            text: 'Login Now', 
-            onPress: () => setIsLogin(true)
-          }]
-        );
+        // Registration process with blockchain ID generation
+        console.log('Generating blockchain ID...');
+        
+        // Calculate trip expiry date
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + parseInt(formData.tripDuration));
+        
+        // Prepare user data for blockchain ID generation
+        const userData = {
+          name: formData.fullName,
+          documentType: formData.documentType,
+          documentNumber: formData.documentNumber,
+          phoneNumber: formData.phoneNumber,
+          emergencyContacts: [formData.emergencyContact],
+          expiryDate: expiryDate.toISOString(),
+          issueLocation: 'Mobile App Registration'
+        };
+        
+        // Generate blockchain ID
+        const blockchainResult = await generateBlockchainId(userData);
+        
+        if (blockchainResult.success) {
+          Alert.alert(
+            'Registration Successful! 🎉',
+            `Welcome to e-Raksha Setu!\n\n` +
+            `Your Digital Tourist ID: ${blockchainResult.digitalId}\n\n` +
+            `Blockchain ID: ${blockchainResult.blockchainId}\n\n` +
+            `Valid until: ${new Date(expiryDate).toLocaleDateString()}\n\n` +
+            `This unique ID ensures your safety and can be verified by authorities.`,
+            [{ 
+              text: 'Continue to Biometric Setup', 
+              onPress: () => navigation.navigate('BiometricSetup', {
+                blockchainId: blockchainResult.blockchainId,
+                digitalId: blockchainResult.digitalId
+              })
+            }]
+          );
+        } else {
+          Alert.alert(
+            'Registration Error',
+            'Failed to generate blockchain ID. Please try again.',
+            [{ text: 'Retry', onPress: () => {} }]
+          );
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Something went wrong. Please try again.');
@@ -175,6 +247,156 @@ export default function RegistrationScreen({ navigation }) {
               </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
+
+            {/* Additional Registration Fields */}
+            {!isLogin && (
+              <>
+                {/* Full Name */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Full Name *</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                    <TextInput
+                      style={[styles.textInput, errors.fullName && styles.textInputError]}
+                      value={formData.fullName}
+                      onChangeText={(value) => handleInputChange('fullName', value)}
+                      placeholder="Enter your full name as per ID"
+                      placeholderTextColor={theme.colors.textSecondary}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                  {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+                </View>
+
+                {/* Document Type Selection */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Identity Document *</Text>
+                  <View style={styles.documentTypeContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.documentTypeButton,
+                        formData.documentType === 'aadhaar' && styles.documentTypeButtonActive
+                      ]}
+                      onPress={() => handleInputChange('documentType', 'aadhaar')}
+                    >
+                      <Ionicons 
+                        name="card" 
+                        size={16} 
+                        color={formData.documentType === 'aadhaar' ? '#fff' : theme.colors.primary} 
+                      />
+                      <Text style={[
+                        styles.documentTypeText,
+                        formData.documentType === 'aadhaar' && styles.documentTypeTextActive
+                      ]}>
+                        Aadhaar (Indian)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.documentTypeButton,
+                        formData.documentType === 'passport' && styles.documentTypeButtonActive
+                      ]}
+                      onPress={() => handleInputChange('documentType', 'passport')}
+                    >
+                      <Ionicons 
+                        name="airplane" 
+                        size={16} 
+                        color={formData.documentType === 'passport' ? '#fff' : theme.colors.primary} 
+                      />
+                      <Text style={[
+                        styles.documentTypeText,
+                        formData.documentType === 'passport' && styles.documentTypeTextActive
+                      ]}>
+                        Passport (Foreign)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Document Number */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {formData.documentType === 'aadhaar' ? 'Aadhaar Number' : 'Passport Number'} *
+                  </Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="document-text" size={20} color={theme.colors.textSecondary} />
+                    <TextInput
+                      style={[styles.textInput, errors.documentNumber && styles.textInputError]}
+                      value={formData.documentNumber}
+                      onChangeText={(value) => handleInputChange('documentNumber', value)}
+                      placeholder={formData.documentType === 'aadhaar' ? 'Enter 12-digit Aadhaar' : 'Enter passport number'}
+                      placeholderTextColor={theme.colors.textSecondary}
+                      keyboardType={formData.documentType === 'aadhaar' ? 'numeric' : 'default'}
+                      maxLength={formData.documentType === 'aadhaar' ? 12 : 20}
+                      autoCapitalize="characters"
+                    />
+                  </View>
+                  {errors.documentNumber && <Text style={styles.errorText}>{errors.documentNumber}</Text>}
+                </View>
+
+                {/* Phone Number */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Phone Number *</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="call" size={20} color={theme.colors.textSecondary} />
+                    <TextInput
+                      style={[styles.textInput, errors.phoneNumber && styles.textInputError]}
+                      value={formData.phoneNumber}
+                      onChangeText={(value) => handleInputChange('phoneNumber', value)}
+                      placeholder="Enter 10-digit mobile number"
+                      placeholderTextColor={theme.colors.textSecondary}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                  {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+                </View>
+
+                {/* Emergency Contact */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Emergency Contact *</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="medical" size={20} color={theme.colors.textSecondary} />
+                    <TextInput
+                      style={[styles.textInput, errors.emergencyContact && styles.textInputError]}
+                      value={formData.emergencyContact}
+                      onChangeText={(value) => handleInputChange('emergencyContact', value)}
+                      placeholder="Emergency contact number"
+                      placeholderTextColor={theme.colors.textSecondary}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                  {errors.emergencyContact && <Text style={styles.errorText}>{errors.emergencyContact}</Text>}
+                </View>
+
+                {/* Trip Duration */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Trip Duration (Days) *</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
+                    <TextInput
+                      style={[styles.textInput, errors.tripDuration && styles.textInputError]}
+                      value={formData.tripDuration}
+                      onChangeText={(value) => handleInputChange('tripDuration', value)}
+                      placeholder="Number of days (e.g., 7)"
+                      placeholderTextColor={theme.colors.textSecondary}
+                      keyboardType="numeric"
+                      maxLength={3}
+                    />
+                  </View>
+                  {errors.tripDuration && <Text style={styles.errorText}>{errors.tripDuration}</Text>}
+                </View>
+
+                {/* Blockchain ID Info */}
+                <View style={styles.blockchainInfo}>
+                  <Ionicons name="shield-checkmark" size={20} color={theme.colors.success} />
+                  <Text style={styles.blockchainInfoText}>
+                    Your unique blockchain-based Digital Tourist ID will be generated upon registration for secure verification by authorities.
+                  </Text>
+                </View>
+              </>
+            )}
 
             {/* Submit Button */}
             <TouchableOpacity 
@@ -374,5 +596,49 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.info,
     textAlign: 'center',
+  },
+  documentTypeContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  documentTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface,
+    gap: theme.spacing.xs,
+  },
+  documentTypeButtonActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  documentTypeText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  documentTypeTextActive: {
+    color: '#fff',
+  },
+  blockchainInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: `${theme.colors.success}10`,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: `${theme.colors.success}30`,
+  },
+  blockchainInfoText: {
+    flex: 1,
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.success,
+    lineHeight: 18,
   },
 });

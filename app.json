@@ -2,6 +2,9 @@
   "expo": {
     "name": "e-Raksha Setu",
     "slug": "e-raksha-setu",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "plugins": [
+      "expo-maps"
+    ]
   }
 }
