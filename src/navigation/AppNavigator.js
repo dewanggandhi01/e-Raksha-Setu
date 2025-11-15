@@ -15,6 +15,7 @@ import KYCVerificationScreen from '../screens/KYCVerificationScreen';
 import HomeScreen from '../screens/HomeScreen';
 import RouteSelectionScreen from '../screens/RouteSelectionScreen';
 import RoutePlanningScreen from '../screens/RoutePlanningScreen';
+import TourismScreen from '../screens/TourismScreen';
 import MonitoringDashboard from '../screens/MonitoringDashboard';
 import EmergencyScreen from '../screens/EmergencyScreen';
 import BiometricSetupScreen from '../screens/BiometricSetupScreen';
@@ -44,6 +45,8 @@ function MainTabs() {
             iconName = focused ? 'location' : 'location-outline';
           } else if (route.name === 'Emergency') {
             iconName = focused ? 'shield' : 'shield-outline';
+          } else if (route.name === 'Tourism') {
+            iconName = focused ? 'compass' : 'compass-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -85,6 +88,14 @@ function MainTabs() {
         name="Emergency" 
         component={EmergencyScreen}
         options={{ title: 'Emergency SOS' }}
+      />
+      <Tab.Screen 
+        name="Tourism" 
+        component={TourismScreen}
+        options={{ 
+          title: 'Tourism',
+          headerShown: false 
+        }}
       />
       <Tab.Screen 
         name="Profile" 
@@ -177,6 +188,11 @@ function CombinedStack() {
         name="RoutePlanning" 
         component={RoutePlanningScreen}
         options={{ title: 'Route Planning' }}
+      />
+      <Stack.Screen 
+        name="Tourism" 
+        component={TourismScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="Settings" 
