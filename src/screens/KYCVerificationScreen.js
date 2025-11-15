@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera } from 'expo-camera';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 
 export default function KYCVerificationScreen({ navigation }) {
@@ -186,7 +186,7 @@ export default function KYCVerificationScreen({ navigation }) {
   const renderBiometricVerification = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
-        <Ionicons name="fingerprint" size={48} color={theme.colors.primary} />
+        <MaterialCommunityIcons name="fingerprint" size={48} color={theme.colors.primary} />
         <Text style={styles.stepTitle}>Biometric Verification</Text>
         <Text style={styles.stepDescription}>
           Complete your verification with biometric authentication
@@ -199,11 +199,11 @@ export default function KYCVerificationScreen({ navigation }) {
           style={styles.biometricCard}
         >
           <View style={styles.biometricIcon}>
-            <Ionicons 
-              name={faceIdSupported ? "face-recognition" : "fingerprint"} 
-              size={80} 
-              color={theme.colors.primary} 
-            />
+            {faceIdSupported ? (
+              <Ionicons name="face-recognition" size={80} color={theme.colors.primary} />
+            ) : (
+              <MaterialCommunityIcons name="fingerprint" size={80} color={theme.colors.primary} />
+            )}
           </View>
           
           <Text style={styles.biometricTitle}>
@@ -273,7 +273,7 @@ export default function KYCVerificationScreen({ navigation }) {
           </View>
           
           <View style={styles.detailItem}>
-            <Ionicons name="fingerprint" size={24} color={theme.colors.success} />
+            <MaterialCommunityIcons name="fingerprint" size={24} color={theme.colors.success} />
             <View style={styles.detailText}>
               <Text style={styles.detailTitle}>Biometric Added</Text>
               <Text style={styles.detailDescription}>Device secured</Text>

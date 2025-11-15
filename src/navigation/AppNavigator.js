@@ -22,6 +22,7 @@ import BiometricSetupScreen from '../screens/BiometricSetupScreen';
 import DigitalIDScreen from '../screens/DigitalIDScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import HelpSupportScreen from '../screens/HelpSupportScreen';
+import PrivateKeyScreen from '../screens/PrivateKeyScreen';
 import { SettingsScreen } from '../screens/PlaceholderScreens';
 
 import { theme } from '../styles/theme';
@@ -165,6 +166,11 @@ function CombinedStack() {
         name="DigitalID" 
         component={DigitalIDScreen}
         options={{ title: 'Digital Tourist ID' }}
+      />
+      <Stack.Screen 
+        name="PrivateKey"
+        component={PrivateKeyScreen}
+        options={{ title: 'Private Key' }}
       />
       
       {/* Main App Flow */}

@@ -9,7 +9,6 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -72,14 +71,7 @@ const mockRoutes = [
 ];
 
 export default function RoutePlanningScreen({ navigation, route }) {
-  const { 
-    destination, 
-    routeData, 
-    startLocation, 
-    destinationLocation,
-    startCoordinates,
-    destinationCoordinates 
-  } = route.params || {};
+  const { destination, routeData, startLocation, destinationLocation } = route.params || {};
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,6 +79,7 @@ export default function RoutePlanningScreen({ navigation, route }) {
   const [offlineMapDownloaded, setOfflineMapDownloaded] = useState(false);
 
   useEffect(() => {
+<<<<<<< HEAD
     // Log received parameters for debugging
     console.log('=== RoutePlanningScreen Loaded ===');
     console.log('Start Location:', startLocation);
@@ -96,6 +89,8 @@ export default function RoutePlanningScreen({ navigation, route }) {
     console.log('Has routeData:', !!routeData);
     console.log('================================');
     
+=======
+>>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
     loadRoutes();
   }, []);
 
@@ -110,6 +105,7 @@ export default function RoutePlanningScreen({ navigation, route }) {
       return;
     }
     
+<<<<<<< HEAD
     // Check if we have coordinates to fetch real routes
     if (startCoordinates && destinationCoordinates) {
       await fetchRoutesFromOSRM();
@@ -346,6 +342,16 @@ export default function RoutePlanningScreen({ navigation, route }) {
         ]
       );
     }
+=======
+    // Otherwise use mock data for destinations
+    setTimeout(() => {
+      // Sort routes by safety rating (lower rating = safer)
+      const sortedRoutes = mockRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
+      setRoutes(sortedRoutes);
+      setSelectedRoute(sortedRoutes[0]); // Pre-select safest route
+      setIsLoading(false);
+    }, 2000);
+>>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
   };
 
   const getSafetyColor = (rating) => {
@@ -399,11 +405,16 @@ export default function RoutePlanningScreen({ navigation, route }) {
           { 
             text: 'Continue Anyway', 
             style: 'destructive',
+<<<<<<< HEAD
             onPress: () => openGoogleMaps()
+=======
+            onPress: () => startMonitoring()
+>>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
           }
         ]
       );
     } else {
+<<<<<<< HEAD
       openGoogleMaps();
     }
   };
@@ -470,6 +481,21 @@ export default function RoutePlanningScreen({ navigation, route }) {
         [{ text: 'OK' }]
       );
     }
+=======
+      startMonitoring();
+    }
+  };
+
+  const startMonitoring = () => {
+    navigation.navigate('MainTabs', {
+      screen: 'Dashboard',
+      params: {
+        destination,
+        selectedRoute,
+        startMonitoring: true
+      }
+    });
+>>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
   };
 
   const downloadOfflineMap = async () => {
@@ -654,17 +680,6 @@ export default function RoutePlanningScreen({ navigation, route }) {
                       <Ionicons name="time" size={16} color={theme.colors.primary} />
                       <Text style={styles.routeDetailText}>Duration: {selectedRoute.duration}</Text>
                     </View>
-                    <View style={styles.routeDetail}>
-                      <Ionicons name="navigate" size={16} color={theme.colors.primary} />
-                      <Text style={styles.routeDetailText}>Waypoints: {selectedRoute.coordinates?.length || 0}</Text>
-                    </View>
-                  </View>
-                )}
-                {routes.length > 0 && (
-                  <View style={styles.routesOverlay}>
-                    <Text style={styles.routesCountText}>
-                      {routes.length} route{routes.length > 1 ? 's' : ''} available
-                    </Text>
                   </View>
                 )}
               </LinearGradient>
@@ -682,19 +697,10 @@ export default function RoutePlanningScreen({ navigation, route }) {
 
           {/* Route Options */}
           <View style={styles.routesSection}>
-            <View style={styles.routesSectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Route Options</Text>
-                <Text style={styles.sectionSubtitle}>
-                  {routes.length} route{routes.length > 1 ? 's' : ''} from OSRM • Sorted by safety
-                </Text>
-              </View>
-              {startCoordinates && destinationCoordinates && (
-                <TouchableOpacity onPress={loadRoutes} style={styles.refreshButton}>
-                  <Ionicons name="refresh" size={20} color={theme.colors.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
+            <Text style={styles.sectionTitle}>Route Options</Text>
+            <Text style={styles.sectionSubtitle}>
+              Routes sorted by safety rating (1 = safest, 5 = highest risk)
+            </Text>
             
             <View style={styles.routesList}>
               {routes.map((routeItem, index) => renderRouteCard(routeItem, index))}
@@ -1144,39 +1150,5 @@ const styles = StyleSheet.create({
   routeDetailText: {
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.textSecondary,
-  },
-  routesOverlay: {
-    position: 'absolute',
-    top: theme.spacing.md,
-    right: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full || 20,
-  },
-  routesOverlay: {
-    position: 'absolute',
-    top: theme.spacing.md,
-    right: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full || 20,
-  },
-  routesCountText: {
-    fontSize: theme.fonts.sizes.xs,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  routesSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  refreshButton: {
-    padding: theme.spacing.sm,
-    backgroundColor: `${theme.colors.primary}10`,
-    borderRadius: theme.borderRadius.md,
   },
 });
