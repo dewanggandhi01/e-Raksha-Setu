@@ -10,20 +10,21 @@ import {
   Animated,
   Vibration,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as SMS from 'expo-sms';
+import NetInfo from '@react-native-community/netinfo';
 import { theme } from '../styles/theme';
 
 export default function EmergencyScreen({ navigation, route }) {
   const [emergencyType, setEmergencyType] = useState(route.params?.emergencyType || null);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [emergencyContacts, setEmergencyContacts] = useState([
-    { id: 1, name: 'Rajesh Kumar', phone: '+91 98765 43210', relation: 'Father' },
-    { id: 2, name: 'Priya Sharma', phone: '+91 87654 32109', relation: 'Sister' },
-  ]);
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [nearbyServices, setNearbyServices] = useState([
     { id: 1, name: 'District Hospital', phone: '108', distance: '2.3 km', type: 'hospital' },
     { id: 2, name: 'Police Station', phone: '100', distance: '1.8 km', type: 'police' },
@@ -31,6 +32,11 @@ export default function EmergencyScreen({ navigation, route }) {
   ]);
   const [sosActive, setSosActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactRelation, setContactRelation] = useState('');
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const countdownRef = useRef(null);
@@ -240,22 +246,165 @@ export default function EmergencyScreen({ navigation, route }) {
       return;
     }
     
-    const locationText = `My current location: https://maps.google.com/?q=${currentLocation.coords.latitude},${currentLocation.coords.longitude}`;
-    
-    // In a real app, this would use the Share API
+    if (emergencyContacts.length === 0) {
+      Alert.alert('No Contacts', 'Please add emergency contacts first.');
+      return;
+    }
+
+    try {
+      // Check network connectivity
+      const netInfo = await NetInfo.fetch();
+      const isOnline = netInfo.isConnected && netInfo.isInternetReachable;
+
+      const latitude = currentLocation.coords.latitude;
+      const longitude = currentLocation.coords.longitude;
+      const googleMapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+      const timestamp = new Date().toLocaleString();
+      
+      // Get location address
+      let address = 'Location coordinates attached';
+      try {
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude
+        });
+        if (reverseGeocode && reverseGeocode.length > 0) {
+          const loc = reverseGeocode[0];
+          address = `${loc.street || ''}, ${loc.city || ''}, ${loc.region || ''}, ${loc.postalCode || ''}`;
+        }
+      } catch (err) {
+        console.log('Reverse geocoding failed:', err);
+      }
+
+      // Prepare SMS message with basic details
+      const smsMessage = `🚨 EMERGENCY ALERT\n\nTime: ${timestamp}\nLocation: ${address}\n\nCoordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n\nView on map: ${googleMapsUrl}\n\n- Sent from e-Raksha Setu`;
+
+      // Extract phone numbers
+      const phoneNumbers = emergencyContacts.map(contact => contact.phone.replace(/[^0-9+]/g, ''));
+
+      // Send SMS to all contacts
+      const isSMSAvailable = await SMS.isAvailableAsync();
+      if (isSMSAvailable) {
+        await SMS.sendSMSAsync(phoneNumbers, smsMessage);
+      }
+
+      // If online, also share live location via WhatsApp
+      if (isOnline) {
+        const whatsappMessage = encodeURIComponent(`🚨 EMERGENCY - Live Location Sharing\n\nI need help! Sharing my live location with you.\n\nTime: ${timestamp}\nAddress: ${address}`);
+        
+        // Share with each contact via WhatsApp
+        for (const contact of emergencyContacts) {
+          const cleanPhone = contact.phone.replace(/[^0-9]/g, '');
+          const whatsappUrl = `whatsapp://send?phone=${cleanPhone}&text=${whatsappMessage}`;
+          
+          // Try to open WhatsApp with location
+          try {
+            const canOpen = await Linking.canOpenURL(whatsappUrl);
+            if (canOpen) {
+              await Linking.openURL(whatsappUrl);
+              // Small delay between contacts
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          } catch (err) {
+            console.log('WhatsApp sharing failed for contact:', contact.name);
+          }
+        }
+
+        Alert.alert(
+          'Location Shared Successfully',
+          `Emergency alert sent via SMS to ${emergencyContacts.length} contact(s).\n\nLive location sharing initiated via WhatsApp.\n\nPlease manually share your live location in the WhatsApp chat that opened.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Offline - SMS only
+        Alert.alert(
+          'Location Shared (Offline)',
+          `Emergency alert with location sent via SMS to ${emergencyContacts.length} contact(s).\n\nYou are currently offline. WhatsApp live location sharing is not available.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error sharing location:', error);
+      Alert.alert(
+        'Error',
+        'Failed to share location. Please try calling your contacts directly.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const openContactModal = (contact = null) => {
+    if (contact) {
+      setEditingContact(contact);
+      setContactName(contact.name);
+      setContactPhone(contact.phone);
+      setContactRelation(contact.relation);
+    } else {
+      setEditingContact(null);
+      setContactName('');
+      setContactPhone('');
+      setContactRelation('');
+    }
+    setShowContactModal(true);
+  };
+
+  const closeContactModal = () => {
+    setShowContactModal(false);
+    setEditingContact(null);
+    setContactName('');
+    setContactPhone('');
+    setContactRelation('');
+  };
+
+  const saveContact = () => {
+    if (!contactName.trim() || !contactPhone.trim() || !contactRelation.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (editingContact) {
+      // Update existing contact
+      setEmergencyContacts(emergencyContacts.map(c => 
+        c.id === editingContact.id
+          ? { ...c, name: contactName, phone: contactPhone, relation: contactRelation }
+          : c
+      ));
+      Alert.alert('Success', 'Contact updated successfully');
+    } else {
+      // Add new contact
+      const newContact = {
+        id: Date.now(),
+        name: contactName,
+        phone: contactPhone,
+        relation: contactRelation
+      };
+      setEmergencyContacts([...emergencyContacts, newContact]);
+      Alert.alert('Success', 'Contact added successfully');
+    }
+
+    closeContactModal();
+  };
+
+  const deleteContact = (contactId) => {
     Alert.alert(
-      'Location Shared',
-      'Your location has been shared with your emergency contacts.',
-      [{ text: 'OK' }]
+      'Delete Contact',
+      'Are you sure you want to remove this emergency contact?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setEmergencyContacts(emergencyContacts.filter(c => c.id !== contactId));
+            Alert.alert('Success', 'Contact removed successfully');
+          }
+        }
+      ]
     );
   };
 
   const renderEmergencyContact = (contact) => (
-    <TouchableOpacity
-      key={contact.id}
-      style={styles.contactCard}
-      onPress={() => callEmergencyService(contact.phone)}
-    >
+    <View key={contact.id} style={styles.contactCard}>
       <View style={styles.contactInfo}>
         <View style={styles.contactIcon}>
           <Ionicons name="person" size={20} color={theme.colors.primary} />
@@ -266,13 +415,27 @@ export default function EmergencyScreen({ navigation, route }) {
           <Text style={styles.contactPhone}>{contact.phone}</Text>
         </View>
       </View>
-      <TouchableOpacity 
-        style={styles.callButton}
-        onPress={() => callEmergencyService(contact.phone)}
-      >
-        <Ionicons name="call" size={20} color="#fff" />
-      </TouchableOpacity>
-    </TouchableOpacity>
+      <View style={styles.contactActions}>
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => openContactModal(contact)}
+        >
+          <Ionicons name="create-outline" size={18} color={theme.colors.info} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.deleteButton}
+          onPress={() => deleteContact(contact.id)}
+        >
+          <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.callButton}
+          onPress={() => callEmergencyService(contact.phone)}
+        >
+          <Ionicons name="call" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   const renderNearbyService = (service) => {
@@ -410,7 +573,10 @@ export default function EmergencyScreen({ navigation, route }) {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-            <TouchableOpacity style={styles.addButton}>
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => openContactModal()}
+            >
               <Ionicons name="add" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
@@ -469,6 +635,85 @@ export default function EmergencyScreen({ navigation, route }) {
           </LinearGradient>
         </View>
       )}
+
+      {/* Add/Edit Contact Modal */}
+      <Modal
+        visible={showContactModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeContactModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editingContact ? 'Edit Contact' : 'Add Emergency Contact'}
+              </Text>
+              <TouchableOpacity onPress={closeContactModal}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter contact name"
+                  value={contactName}
+                  onChangeText={setContactName}
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Phone Number *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="+91 XXXXX XXXXX"
+                  value={contactPhone}
+                  onChangeText={setContactPhone}
+                  keyboardType="phone-pad"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Relationship *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Father, Mother, Sibling, Friend"
+                  value={contactRelation}
+                  onChangeText={setContactRelation}
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={styles.modalCancelButton}
+                  onPress={closeContactModal}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.modalSaveButton}
+                  onPress={saveContact}
+                >
+                  <LinearGradient
+                    colors={[theme.colors.primary, theme.colors.secondary]}
+                    style={styles.modalSaveButtonGradient}
+                  >
+                    <Text style={styles.modalSaveButtonText}>
+                      {editingContact ? 'Update' : 'Add Contact'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
     </SafeAreaView>
   );
@@ -766,6 +1011,106 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  contactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${theme.colors.info}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${theme.colors.error}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    maxHeight: '80%',
+    ...theme.shadows.large,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: theme.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  modalContent: {
+    padding: theme.spacing.lg,
+  },
+  inputContainer: {
+    marginBottom: theme.spacing.lg,
+  },
+  inputLabel: {
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  input: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  modalSaveButton: {
+    flex: 1,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+  },
+  modalSaveButtonGradient: {
+    padding: theme.spacing.md,
+    alignItems: 'center',
+  },
+  modalSaveButtonText: {
+    fontSize: theme.fonts.sizes.md,
     fontWeight: 'bold',
     color: '#fff',
   },
