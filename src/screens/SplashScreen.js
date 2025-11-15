@@ -7,6 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -47,7 +48,8 @@ export default function SplashScreen({ navigation }) {
   }, []);
 
   return (
-    <LinearGradient
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <LinearGradient
       colors={[theme.colors.primary, theme.colors.secondary]}
       style={styles.container}
     >
@@ -119,11 +121,16 @@ export default function SplashScreen({ navigation }) {
         </Text>
         <Text style={styles.versionText}>v1.0.0</Text>
       </View>
-    </LinearGradient>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',

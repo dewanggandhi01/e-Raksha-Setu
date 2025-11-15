@@ -2,11 +2,13 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
 import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import PermissionsScreen from '../screens/PermissionsScreen';
 import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
 import RegistrationScreen from '../screens/RegistrationScreen';
 import KYCVerificationScreen from '../screens/KYCVerificationScreen';
@@ -29,6 +31,7 @@ const Tab = createBottomTabNavigator();
 // Main app tabs after authentication
 function MainTabs() {
   return (
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
@@ -91,6 +94,7 @@ function MainTabs() {
         }}
       />
     </Tab.Navigator>
+    </SafeAreaView>
   );
 }
 
@@ -119,6 +123,11 @@ function CombinedStack() {
       <Stack.Screen 
         name="Onboarding" 
         component={OnboardingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="Permissions" 
+        component={PermissionsScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen 

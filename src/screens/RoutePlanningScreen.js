@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 // Maps functionality replaced with visual placeholders for Expo Go compatibility
@@ -260,7 +261,8 @@ export default function RoutePlanningScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
       {/* Header */}
       <LinearGradient
         colors={[theme.colors.primary, theme.colors.secondary]}
@@ -454,11 +456,16 @@ export default function RoutePlanningScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

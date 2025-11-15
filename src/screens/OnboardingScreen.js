@@ -8,6 +8,7 @@ import {
   ScrollView,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -63,12 +64,12 @@ export default function OnboardingScreen({ navigation }) {
         animated: true,
       });
     } else {
-      navigation.navigate('LanguageSelection');
+      navigation.navigate('Permissions');
     }
   };
 
   const handleSkip = () => {
-    navigation.navigate('LanguageSelection');
+    navigation.navigate('Permissions');
   };
 
   const handlePrevious = () => {
@@ -151,7 +152,8 @@ export default function OnboardingScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -230,7 +232,8 @@ export default function OnboardingScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -242,6 +245,10 @@ const FeatureItem = ({ icon, text }) => (
 );
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

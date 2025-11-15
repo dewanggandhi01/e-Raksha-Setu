@@ -11,6 +11,7 @@ import {
   Vibration,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -320,6 +321,7 @@ export default function EmergencyScreen({ navigation, route }) {
   };
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient
@@ -468,10 +470,15 @@ export default function EmergencyScreen({ navigation, route }) {
         </View>
       )}
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.emergency,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

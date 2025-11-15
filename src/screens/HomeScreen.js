@@ -8,6 +8,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -38,6 +39,7 @@ export default function HomeScreen({ navigation }) {
   const [blockchainData, setBlockchainData] = useState(null);
   const [location, setLocation] = useState(null);
   const [locationPermission, setLocationPermission] = useState(null);
+  const [locationName, setLocationName] = useState('Getting location...');
   const [mapRegion, setMapRegion] = useState({
     latitude: 28.6139, // Default to Delhi, India
     longitude: 77.2090,
@@ -50,6 +52,8 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     loadBlockchainData();
     requestLocationPermission();
+    // Get location name for default coordinates
+    getLocationName(mapRegion.latitude, mapRegion.longitude);
   }, []);
 
   const loadBlockchainData = async () => {
@@ -99,6 +103,9 @@ export default function HomeScreen({ navigation }) {
       };
       setMapRegion(newRegion);
       
+      // Get place name from coordinates
+      await getLocationName(latitude, longitude);
+      
       // Animate to new location if map ref is available
       if (mapRef) {
         mapRef.animateToRegion(newRegion, 1000);
@@ -141,6 +148,64 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const getLocationName = async (latitude, longitude) => {
+    try {
+      const result = await Location.reverseGeocodeAsync({ latitude, longitude });
+      
+      if (result && result.length > 0) {
+        const address = result[0];
+        console.log('Reverse geocode result:', address);
+        
+        // Build a readable location name with priority order
+        const parts = [];
+        
+        // Try to get the most specific location first
+        if (address.name && address.name !== address.street) {
+          parts.push(address.name);
+        } else if (address.street) {
+          parts.push(address.street);
+        }
+        
+        // Add district/subregion if available
+        if (address.district) {
+          parts.push(address.district);
+        } else if (address.subregion) {
+          parts.push(address.subregion);
+        }
+        
+        // Add city
+        if (address.city) {
+          parts.push(address.city);
+        }
+        
+        // Add region/state if no city
+        if (!address.city && address.region) {
+          parts.push(address.region);
+        }
+        
+        // Always add country
+        if (address.country) {
+          parts.push(address.country);
+        }
+        
+        // Take first 3 meaningful parts
+        const locationString = parts.length > 0 ? parts.slice(0, 3).join(', ') : 'Unknown Location';
+        console.log('Location name set to:', locationString);
+        setLocationName(locationString);
+        return locationString;
+      } else {
+        console.log('No reverse geocode results');
+        setLocationName('Location found');
+        return 'Location found';
+      }
+    } catch (error) {
+      console.error('Error getting location name:', error);
+      const fallback = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      setLocationName(fallback);
+      return fallback;
+    }
+  };
+
   const handleGoToLocation = async () => {
     if (!locationPermission) {
       Alert.alert(
@@ -174,6 +239,9 @@ export default function HomeScreen({ navigation }) {
       };
       setMapRegion(newRegion);
       
+      // Get location name
+      const placeName = await getLocationName(latitude, longitude);
+      
       // Handle both native map and WebView map
       if (mapRef && !ExpoMaps) {
         mapRef.injectJavaScript('if(typeof centerOnUser === "function") centerOnUser(); true;');
@@ -183,7 +251,7 @@ export default function HomeScreen({ navigation }) {
       
       Alert.alert(
         'Location Found!',
-        `Your current location:\nLatitude: ${latitude.toFixed(6)}\nLongitude: ${longitude.toFixed(6)}\nAccuracy: ±${currentLocation.coords.accuracy?.toFixed(0) || 'N/A'}m`,
+        `${placeName || 'Your current location'}\nAccuracy: ±${currentLocation.coords.accuracy?.toFixed(0) || 'N/A'}m`,
         [{ text: 'OK' }]
       );
       
@@ -295,6 +363,8 @@ export default function HomeScreen({ navigation }) {
     const lat = location?.coords?.latitude || mapRegion.latitude;
     const lng = location?.coords?.longitude || mapRegion.longitude;
     const zoom = mapRegion.latitudeDelta < 0.005 ? 16 : mapRegion.latitudeDelta < 0.02 ? 14 : 12;
+    const displayLocation = locationName || 'Loading...';
+    const escapedLocation = displayLocation.replace(/'/g, "\\'");
     
     return `
       <!DOCTYPE html>
@@ -352,8 +422,8 @@ export default function HomeScreen({ navigation }) {
         <body>
           <div class="map-overlay">
             <div><strong>📍 Location</strong></div>
-            <div>${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
-            <div>Zoom: ${zoom}</div>
+            <div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapedLocation}</div>
+            <div style="font-size: 10px; color: #666;">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
           </div>
           
           <div class="controls">
@@ -392,7 +462,7 @@ export default function HomeScreen({ navigation }) {
             // Add user marker
             userMarker = L.marker([${lat}, ${lng}], { icon: userIcon })
               .addTo(map)
-              .bindPopup('📍 Your Location<br>${lat.toFixed(6)}, ${lng.toFixed(6)}');
+              .bindPopup('📍 Your Location<br>${escapedLocation}<br><small style="color: #666;">${lat.toFixed(6)}, ${lng.toFixed(6)}</small>');
 
             // Add sample safety markers
             const safeIcon = L.divIcon({
@@ -451,7 +521,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header with User Profile */}
       <LinearGradient
@@ -471,11 +541,28 @@ export default function HomeScreen({ navigation }) {
           </View>
           
           <View style={styles.safetyScoreContainer}>
-            <View style={[styles.safetyScore, { borderColor: getSafetyScoreColor(userProfile.safetyScore) }]}>
-              <Text style={[styles.safetyScoreNumber, { color: getSafetyScoreColor(userProfile.safetyScore) }]}>
-                {userProfile.safetyScore}
-              </Text>
-              <Text style={styles.safetyScoreLabel}>Safety Score</Text>
+            <View style={styles.safetyScoreWrapper}>
+              {/* Outer glow ring */}
+              <View style={[styles.safetyScoreGlow, { borderColor: getSafetyScoreColor(userProfile.safetyScore) + '30' }]} />
+              
+              {/* Progress ring */}
+              <View style={[styles.safetyScoreRing, { borderColor: getSafetyScoreColor(userProfile.safetyScore) + '40' }]}>
+                {/* Inner gradient circle */}
+                <LinearGradient
+                  colors={[getSafetyScoreColor(userProfile.safetyScore) + '20', getSafetyScoreColor(userProfile.safetyScore) + '05']}
+                  style={styles.safetyScore}
+                >
+                  <View style={styles.safetyScoreContent}>
+                    <Text style={[styles.safetyScoreNumber, { color: getSafetyScoreColor(userProfile.safetyScore) }]}>
+                      {userProfile.safetyScore}
+                    </Text>
+                    <Text style={[styles.safetyScoreLabel, { color: getSafetyScoreColor(userProfile.safetyScore) }]} >Safety{"\n"}Score</Text>
+                  </View>
+                </LinearGradient>
+              </View>
+              
+              {/* Pulse effect indicator */}
+              <View style={[styles.safetyScorePulse, { backgroundColor: getSafetyScoreColor(userProfile.safetyScore) }]} />
             </View>
           </View>
         </View>
@@ -753,8 +840,8 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.mapInfo}>
           <View style={styles.mapInfoItem}>
             <Ionicons name="location" size={16} color={location ? theme.colors.success : theme.colors.warning} />
-            <Text style={styles.mapInfoText}>
-              {location ? `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}` : 'Getting location...'}
+            <Text style={styles.mapInfoText} numberOfLines={1} ellipsizeMode="tail">
+              {locationName}
             </Text>
           </View>
           <View style={styles.mapInfoItem}>
@@ -829,11 +916,15 @@ export default function HomeScreen({ navigation }) {
       onClose={() => setShowFullScreenMap(false)}
       initialLocation={location}
     />
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -882,24 +973,77 @@ const styles = StyleSheet.create({
   },
   safetyScoreContainer: {
     alignItems: 'center',
+    position: 'relative',
   },
-  safetyScore: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  safetyScoreWrapper: {
+    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  safetyScoreGlow: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 8,
+    opacity: 0.3,
+  },
+  safetyScoreRing: {
+    width: 95,
+    height: 95,
+    borderRadius: 47.5,
+    borderWidth: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor : '#fff'
+  },
+  safetyScore: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  safetyScoreContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 2,
+  },
   safetyScoreNumber: {
-    fontSize: theme.fonts.sizes.xl,
+    fontSize: 24,
     fontWeight: 'bold',
+    letterSpacing: -1,
   },
   safetyScoreLabel: {
-    fontSize: theme.fonts.sizes.xs,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 9,
+    textAlign: 'center',
+    color: 'rgba(72, 255, 0, 0.9)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  safetyScoreBadge: {
     marginTop: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+  },
+  safetyScoreBadgeText: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  safetyScorePulse: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    top: 0,
+    right: 8,
+    opacity: 0.8,
   },
   quickStats: {
     flexDirection: 'row',
@@ -1098,7 +1242,7 @@ const styles = StyleSheet.create({
   },
   // Map section styles
   routeHeader: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
