@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -320,55 +321,71 @@ export default function RoutePlanningScreen({ navigation, route }) {
       return;
     }
     
-    // Ensure we use the correct latitude and longitude from the user-selected source
-    const sourceLat = startCoordinates.latitude;
-    const sourceLng = startCoordinates.longitude;
-    const destLat = destinationCoordinates.latitude;
-    const destLng = destinationCoordinates.longitude;
-    
-    console.log('🗺️ Opening Google Maps Navigation:');
-    console.log('   Source:', startLocation, `(${sourceLat}, ${sourceLng})`);
-    console.log('   Destination:', destinationLocation, `(${destLat}, ${destLng})`);
-    
-    // Google Maps URL scheme - format: latitude,longitude
-    const origin = `${sourceLat},${sourceLng}`;
-    const destination = `${destLat},${destLng}`;
-    
-    // Platform-specific URL schemes
-    let googleMapsUrl;
-    
-    if (Platform.OS === 'ios') {
-      // iOS: Try Google Maps app URL scheme
-      googleMapsUrl = `comgooglemaps://?saddr=${origin}&daddr=${destination}&directionsmode=driving`;
-    } else {
-      // Android: Use navigation URL with waypoints for better accuracy
-      googleMapsUrl = `google.navigation:q=${destination}&origin=${origin}&mode=d`;
+    if (!selectedRoute) {
+      Alert.alert('Error', 'No route selected');
+      return;
     }
     
-    // Web fallback URL
-    const webUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    // Get origin and destination from user-selected coordinates
+    const origin = {
+      lat: startCoordinates.latitude,
+      lng: startCoordinates.longitude
+    };
     
-    console.log('   Google Maps URL:', googleMapsUrl);
-    console.log('   Web Fallback URL:', webUrl);
+    const destination = {
+      lat: destinationCoordinates.latitude,
+      lng: destinationCoordinates.longitude
+    };
+    
+    // Extract waypoints from selected route (exclude origin and destination)
+    const waypoints = [];
+    if (selectedRoute.coordinates && selectedRoute.coordinates.length > 2) {
+      // Get intermediate waypoints (skip first and last which are origin and destination)
+      for (let i = 1; i < selectedRoute.coordinates.length - 1; i++) {
+        waypoints.push({
+          lat: selectedRoute.coordinates[i].latitude,
+          lng: selectedRoute.coordinates[i].longitude
+        });
+      }
+    }
+    
+    console.log('🗺️ Opening Google Maps Navigation:');
+    console.log('   Route:', selectedRoute.name);
+    console.log('   Source:', startLocation, `(${origin.lat}, ${origin.lng})`);
+    console.log('   Destination:', destinationLocation, `(${destination.lat}, ${destination.lng})`);
+    console.log('   Waypoints:', waypoints.length);
+    
+    // Build waypoints string for URL
+    const waypointsString = waypoints.length > 0
+      ? waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|')
+      : '';
+    
+    // Build Google Maps URL with waypoints
+    let url = `https://www.google.com/maps/dir/?api=1`;
+    url += `&origin=${origin.lat},${origin.lng}`;
+    url += `&destination=${destination.lat},${destination.lng}`;
+    if (waypointsString) {
+      url += `&waypoints=${waypointsString}`;
+    }
+    url += `&travelmode=driving`;
+    
+    console.log('   Google Maps URL:', url);
     
     try {
-      // Check if Google Maps app is installed
-      const supported = await Linking.canOpenURL(googleMapsUrl);
+      const supported = await Linking.canOpenURL(url);
       
       if (supported) {
-        // Open in Google Maps app with navigation
-        console.log('✅ Opening Google Maps app');
-        await Linking.openURL(googleMapsUrl);
+        console.log('✅ Opening Google Maps with route waypoints');
+        await Linking.openURL(url);
       } else {
-        // Fallback to web browser
-        console.log('⚠️ Google Maps app not found, opening in browser');
-        await Linking.openURL(webUrl);
+        console.log('⚠️ Cannot open URL, trying alternative');
+        await Linking.openURL(url);
       }
     } catch (error) {
       console.error('❌ Error opening Google Maps:', error);
       Alert.alert(
         'Error',
-        'Unable to open Google Maps. Please make sure Google Maps is installed on your device.',
+        'Unable to open Google Maps. Please make sure you have an internet connection.',
         [{ text: 'OK' }]
       );
     }
