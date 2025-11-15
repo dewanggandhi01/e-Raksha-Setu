@@ -79,18 +79,6 @@ export default function RoutePlanningScreen({ navigation, route }) {
   const [offlineMapDownloaded, setOfflineMapDownloaded] = useState(false);
 
   useEffect(() => {
-<<<<<<< HEAD
-    // Log received parameters for debugging
-    console.log('=== RoutePlanningScreen Loaded ===');
-    console.log('Start Location:', startLocation);
-    console.log('Destination Location:', destinationLocation);
-    console.log('Start Coordinates:', startCoordinates);
-    console.log('Destination Coordinates:', destinationCoordinates);
-    console.log('Has routeData:', !!routeData);
-    console.log('================================');
-    
-=======
->>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
     loadRoutes();
   }, []);
 
@@ -105,244 +93,6 @@ export default function RoutePlanningScreen({ navigation, route }) {
       return;
     }
     
-<<<<<<< HEAD
-    // Check if we have coordinates to fetch real routes
-    if (startCoordinates && destinationCoordinates) {
-      await fetchRoutesFromOSRM();
-    } else {
-      // Fallback to mock data
-      setTimeout(() => {
-        const sortedRoutes = mockRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
-        setRoutes(sortedRoutes);
-        setSelectedRoute(sortedRoutes[0]);
-        setIsLoading(false);
-      }, 2000);
-    }
-  };
-
-  const fetchRoutesFromOSRM = async () => {
-    try {
-      const { longitude: startLng, latitude: startLat } = startCoordinates;
-      const { longitude: destLng, latitude: destLat } = destinationCoordinates;
-
-      console.log('🗺️ ========== OSRM ROUTE REQUEST ==========');
-      console.log('📍 SOURCE:', startLocation);
-      console.log('   Coordinates:', `${startLat}, ${startLng}`);
-      console.log('🎯 DESTINATION:', destinationLocation);
-      console.log('   Coordinates:', `${destLat}, ${destLng}`);
-      console.log('==========================================');
-
-      // OSRM API endpoint with alternatives - request up to 3 alternatives
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?alternatives=true&overview=full&geometries=geojson&steps=true&continue_straight=false`;
-
-      console.log('🌐 OSRM API URL:', osrmUrl);
-
-      const response = await fetch(osrmUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      console.log('OSRM Response:', JSON.stringify(data, null, 2));
-
-      if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-        throw new Error(`OSRM Error: ${data.code || 'No routes found'}`);
-      }
-
-      console.log(`OSRM returned ${data.routes.length} route(s)`);
-
-      // Process all available OSRM routes
-      let processedRoutes = data.routes.map((osrmRoute, index) => {
-        // Extract coordinates from GeoJSON
-        const coordinates = osrmRoute.geometry.coordinates.map(coord => ({
-          latitude: coord[1],
-          longitude: coord[0]
-        }));
-
-        // Calculate distance in km
-        const distanceKm = (osrmRoute.distance / 1000).toFixed(1);
-        
-        // Calculate duration
-        const durationMins = Math.round(osrmRoute.duration / 60);
-        const hours = Math.floor(durationMins / 60);
-        const mins = durationMins % 60;
-        const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-
-        // Assign safety ratings based on route characteristics
-        let safetyRating, safetyScore;
-        if (index === 0) {
-          // Primary route - usually fastest
-          safetyRating = 2;
-          safetyScore = 85;
-        } else if (index === 1) {
-          safetyRating = 3;
-          safetyScore = 72;
-        } else {
-          safetyRating = 4;
-          safetyScore = 58;
-        }
-
-        // Generate route color based on safety
-        const routeColor = safetyRating <= 2 ? theme.colors.route_safe : 
-                          safetyRating === 3 ? theme.colors.route_caution : 
-                          theme.colors.route_danger;
-
-        // Extract highlights
-        const highlights = [
-          `${distanceKm} km route`,
-          'OpenStreetMap verified',
-          index === 0 ? 'Recommended route' : 'Alternative path',
-          `${coordinates.length} waypoints`
-        ];
-
-        const warnings = [];
-        if (parseFloat(distanceKm) > 100) {
-          warnings.push('Long distance - check fuel and rest stops');
-        }
-        if (durationMins > 180) {
-          warnings.push('Journey over 3 hours - plan breaks');
-        }
-        if (index >= 2) {
-          warnings.push('Less commonly used route');
-        }
-
-        return {
-          id: index + 1,
-          name: index === 0 ? 'Primary Route (Recommended)' : 
-                index === 1 ? 'Alternative Route 1' : 
-                index === 2 ? 'Alternative Route 2' : 
-                `Alternative Route ${index}`,
-          distance: `${distanceKm} km`,
-          duration: durationStr,
-          safetyRating,
-          safetyScore,
-          routeColor,
-          highlights,
-          warnings,
-          coordinates,
-          osrmData: osrmRoute // Store original OSRM data
-        };
-      });
-
-      // If OSRM returns only 1 route, create synthetic alternatives based on the main route
-      if (processedRoutes.length === 1) {
-        console.log('⚠️ Only 1 route from OSRM, generating alternatives...');
-        
-        const baseRoute = processedRoutes[0];
-        const baseDist = parseFloat(baseRoute.distance);
-        const baseDuration = baseRoute.duration;
-        
-        // Extract duration in minutes
-        let totalMinutes = 0;
-        if (baseDuration.includes('h')) {
-          const parts = baseDuration.split('h');
-          totalMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-        } else {
-          totalMinutes = parseInt(baseDuration);
-        }
-        
-        // Alternative 1: Scenic route (10% longer)
-        const alt1Minutes = Math.round(totalMinutes * 1.10);
-        const alt1Hours = Math.floor(alt1Minutes / 60);
-        const alt1Mins = alt1Minutes % 60;
-        
-        const alt1 = {
-          ...baseRoute,
-          id: 2,
-          name: 'Alternative Route 1 (Scenic)',
-          distance: `${(baseDist * 1.10).toFixed(1)} km`,
-          duration: alt1Hours > 0 ? `${alt1Hours}h ${alt1Mins}m` : `${alt1Mins}m`,
-          safetyRating: 3,
-          safetyScore: 72,
-          routeColor: theme.colors.route_caution,
-          coordinates: baseRoute.coordinates, // Reuse same coordinates for visualization
-          highlights: [
-            'Scenic route option',
-            'Less congested roads',
-            'More rest areas',
-            'Better views'
-          ],
-          warnings: ['Slightly longer distance', 'May have narrow sections'],
-        };
-
-        // Alternative 2: Bypass route (15% longer but potentially safer)
-        const alt2Minutes = Math.round(totalMinutes * 1.15);
-        const alt2Hours = Math.floor(alt2Minutes / 60);
-        const alt2Mins = alt2Minutes % 60;
-        
-        const alt2 = {
-          ...baseRoute,
-          id: 3,
-          name: 'Alternative Route 2 (Bypass)',
-          distance: `${(baseDist * 1.15).toFixed(1)} km`,
-          duration: alt2Hours > 0 ? `${alt2Hours}h ${alt2Mins}m` : `${alt2Mins}m`,
-          safetyRating: 2,
-          safetyScore: 78,
-          routeColor: theme.colors.route_safe,
-          coordinates: baseRoute.coordinates,
-          highlights: [
-            'Avoids city centers',
-            'Highway route',
-            'Better for long distance',
-            'More fuel stations'
-          ],
-          warnings: ['Longer distance', 'Limited facilities in some sections'],
-        };
-
-        processedRoutes.push(alt1);
-        processedRoutes.push(alt2);
-        
-        console.log('✅ Generated 2 alternative routes');
-      }
-
-      // Limit to maximum 4 routes
-      processedRoutes = processedRoutes.slice(0, 4);
-
-      // Sort by safety rating (safest first)
-      const sortedRoutes = processedRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
-      
-      setRoutes(sortedRoutes);
-      setSelectedRoute(sortedRoutes[0]); // Pre-select safest route
-      setIsLoading(false);
-
-      console.log(`✅ Successfully loaded ${sortedRoutes.length} routes from OSRM`);
-
-    } catch (error) {
-      console.error('❌ Error fetching routes from OSRM:', error);
-      console.error('Error details:', error.message);
-      
-      Alert.alert(
-        'Route Loading Error',
-        `Could not fetch routes: ${error.message}\n\nWould you like to use sample routes instead?`,
-        [
-          { 
-            text: 'Use Sample Routes', 
-            onPress: () => {
-              console.log('Loading sample routes as fallback...');
-              const sortedRoutes = mockRoutes.sort((a, b) => a.safetyRating - b.safetyRating);
-              setRoutes(sortedRoutes);
-              setSelectedRoute(sortedRoutes[0]);
-              setIsLoading(false);
-            }
-          },
-          { 
-            text: 'Retry', 
-            onPress: () => {
-              console.log('Retrying route fetch...');
-              loadRoutes();
-            } 
-          }
-        ]
-      );
-    }
-=======
     // Otherwise use mock data for destinations
     setTimeout(() => {
       // Sort routes by safety rating (lower rating = safer)
@@ -351,7 +101,6 @@ export default function RoutePlanningScreen({ navigation, route }) {
       setSelectedRoute(sortedRoutes[0]); // Pre-select safest route
       setIsLoading(false);
     }, 2000);
->>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
   };
 
   const getSafetyColor = (rating) => {
@@ -405,16 +154,11 @@ export default function RoutePlanningScreen({ navigation, route }) {
           { 
             text: 'Continue Anyway', 
             style: 'destructive',
-<<<<<<< HEAD
             onPress: () => openGoogleMaps()
-=======
-            onPress: () => startMonitoring()
->>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
           }
         ]
       );
     } else {
-<<<<<<< HEAD
       openGoogleMaps();
     }
   };
@@ -481,21 +225,6 @@ export default function RoutePlanningScreen({ navigation, route }) {
         [{ text: 'OK' }]
       );
     }
-=======
-      startMonitoring();
-    }
-  };
-
-  const startMonitoring = () => {
-    navigation.navigate('MainTabs', {
-      screen: 'Dashboard',
-      params: {
-        destination,
-        selectedRoute,
-        startMonitoring: true
-      }
-    });
->>>>>>> dc985e2e4558ecbba71f78da4064a6a6f89a0bf0
   };
 
   const downloadOfflineMap = async () => {
