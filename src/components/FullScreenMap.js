@@ -209,18 +209,47 @@ export default function FullScreenMap({ visible, onClose, initialLocation }) {
               iconAnchor: [10, 10]
             });
 
-            // Add sample markers
-            L.marker([${lat + 0.002}, ${lng + 0.003}], { icon: safeIcon })
-              .addTo(map)
-              .bindPopup('<b>🛡️ Safe Zone</b><br>Well-lit area with good security');
+            // Hospital icon (red cross)
+            const hospitalIcon = L.divIcon({
+              className: 'custom-marker',
+              html: '<div style="background: #FF4444; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: bold;">+</div>',
+              iconSize: [28, 28],
+              iconAnchor: [14, 14]
+            });
 
-            L.marker([${lat - 0.001}, ${lng + 0.002}], { icon: touristIcon })
-              .addTo(map)
-              .bindPopup('<b>📸 Tourist Spot</b><br>Popular tourist destination');
+            // Police station icon (shield)
+            const policeIcon = L.divIcon({
+              className: 'custom-marker',
+              html: '<div style="background: #1565C0; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; font-weight: bold;">👮</div>',
+              iconSize: [28, 28],
+              iconAnchor: [14, 14]
+            });
 
-            L.marker([${lat + 0.001}, ${lng - 0.002}], { icon: cautionIcon })
+            // Add hospital markers (2-3 hospitals)
+            L.marker([${lat + 0.004}, ${lng + 0.005}], { icon: hospitalIcon })
               .addTo(map)
-              .bindPopup('<b>⚠️ Caution Area</b><br>Exercise extra caution');
+              .bindPopup('<b>🏥 City Hospital</b><br>24/7 Emergency Services<br>Distance: ~450m<br>Contact: 108');
+
+            L.marker([${lat - 0.003}, ${lng - 0.004}], { icon: hospitalIcon })
+              .addTo(map)
+              .bindPopup('<b>🏥 Medical Center</b><br>Multi-specialty Hospital<br>Distance: ~380m<br>Contact: 102');
+
+            L.marker([${lat + 0.006}, ${lng - 0.003}], { icon: hospitalIcon })
+              .addTo(map)
+              .bindPopup('<b>🏥 Community Clinic</b><br>Primary Healthcare<br>Distance: ~520m<br>Contact: 108');
+
+            // Add police station markers (2-3 stations)
+            L.marker([${lat - 0.005}, ${lng + 0.006}], { icon: policeIcon })
+              .addTo(map)
+              .bindPopup('<b>🚔 Central Police Station</b><br>24x7 Protection<br>Distance: ~600m<br>Contact: 100');
+
+            L.marker([${lat + 0.003}, ${lng - 0.006}], { icon: policeIcon })
+              .addTo(map)
+              .bindPopup('<b>🚔 Tourist Police Desk</b><br>Tourist Assistance<br>Distance: ~350m<br>Contact: 1073');
+
+            L.marker([${lat - 0.002}, ${lng + 0.004}], { icon: policeIcon })
+              .addTo(map)
+              .bindPopup('<b>🚔 Safety Outpost</b><br>Emergency Response<br>Distance: ~280m<br>Contact: 100');
 
             // Update zoom level display
             map.on('zoomend', function() {

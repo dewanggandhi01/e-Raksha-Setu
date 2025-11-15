@@ -4,16 +4,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Alert,
-  Animated,
   Dimensions,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-// Maps functionality replaced with visual placeholders for Expo Go compatibility
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { theme } from '../styles/theme';
 
@@ -21,452 +19,663 @@ const { width, height } = Dimensions.get('window');
 
 export default function MonitoringDashboard({ navigation, route }) {
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [isMonitoring, setIsMonitoring] = useState(false);
-  const [journeyStarted, setJourneyStarted] = useState(false);
-  const [tripData, setTripData] = useState({
-    startTime: null,
-    distance: 0,
-    duration: 0,
-    speed: 0,
-    batteryLevel: 100,
-    networkStrength: 4,
-  });
-  const [alertsCount, setAlertsCount] = useState(0);
-  const [deviationStatus, setDeviationStatus] = useState('on-route'); // 'on-route', 'minor-deviation', 'major-deviation'
-  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [heading, setHeading] = useState(0);
+  const [speed, setSpeed] = useState(0);
+  const [isTracking, setIsTracking] = useState(true);
+  const [direction, setDirection] = useState('N');
+  const [hospitals, setHospitals] = useState([]);
+  const [policeStations, setPoliceStations] = useState([]);
+  const [showHospitals, setShowHospitals] = useState(true);
+  const [showPolice, setShowPolice] = useState(true);
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+  const [placesError, setPlacesError] = useState(null);
   
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const mapRef = useRef(null);
+  const locationSubscription = useRef(null);
+
+  // Log when markers are updated
+  useEffect(() => {
+    if (hospitals.length > 0) {
+      console.log(`🗺️ ${hospitals.length} hospital markers ready to render`);
+      console.log('Hospital coordinates:', hospitals.map(h => `${h.name}: [${h.latitude}, ${h.longitude}]`).join('\n'));
+    }
+  }, [hospitals]);
 
   useEffect(() => {
-    startLocationTracking();
-    startHeartbeatAnimation();
-    
-    // Check if we're starting monitoring from route selection
-    if (route.params?.startMonitoring) {
-      handleStartJourney();
+    if (policeStations.length > 0) {
+      console.log(`🗺️ ${policeStations.length} police station markers ready to render`);
+      console.log('Police coordinates:', policeStations.map(p => `${p.name}: [${p.latitude}, ${p.longitude}]`).join('\n'));
     }
+  }, [policeStations]);
+
+  useEffect(() => {
+    requestLocationPermissions();
+    return () => {
+      if (locationSubscription.current) {
+        locationSubscription.current.remove();
+      }
+    };
   }, []);
 
-  useEffect(() => {
-    if (isMonitoring) {
-      const interval = setInterval(() => {
-        updateTripData();
-        checkForAnomalies();
-      }, 5000); // Update every 5 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [isMonitoring]);
-
-  const startLocationTracking = async () => {
+  const requestLocationPermissions = async () => {
     try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required for safety monitoring.');
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      if (foregroundStatus !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required for live tracking.');
         return;
       }
 
-      // Start watching location
-      Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 1000,
-          distanceInterval: 10,
-        },
-        (location) => {
-          setCurrentLocation(location);
-          setLastActivity(Date.now());
-        }
-      );
+      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+      
+      startLiveTracking();
     } catch (error) {
-      console.error('Error starting location tracking:', error);
+      console.error('Error requesting location permissions:', error);
     }
   };
 
-  const startHeartbeatAnimation = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  };
+  const startLiveTracking = async () => {
+    try {
+      let lastFetchTime = 0;
+      const FETCH_INTERVAL = 30000; // Fetch nearby places every 30 seconds instead of every location update
+      
+      locationSubscription.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High, // Changed from BestForNavigation for better performance
+          timeInterval: 2000, // Update every 2 seconds instead of 1
+          distanceInterval: 5, // Only update when moved 5 meters
+        },
+        (location) => {
+          const { latitude, longitude, heading: locationHeading, speed: locationSpeed } = location.coords;
+          
+          setCurrentLocation({
+            latitude,
+            longitude,
+            latitudeDelta: 0.15,
+            longitudeDelta: 0.15,
+          });
 
-  const handleStartJourney = () => {
-    setIsMonitoring(true);
-    setJourneyStarted(true);
-    setTripData(prev => ({ ...prev, startTime: Date.now() }));
-    
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-
-    Alert.alert(
-      'Journey Started',
-      'Safety monitoring is now active. Your location is being tracked and logged for security.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleEndJourney = () => {
-    Alert.alert(
-      'End Journey',
-      'Are you sure you want to end your journey? This will stop safety monitoring.',
-      [
-        { text: 'Continue Journey', style: 'cancel' },
-        { 
-          text: 'End Journey', 
-          style: 'destructive',
-          onPress: () => {
-            setIsMonitoring(false);
-            setJourneyStarted(false);
-            
-            Animated.timing(slideAnim, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            }).start();
-            
-            // Navigate to trip rating screen
-            Alert.alert(
-              'Journey Completed',
-              'Thank you for using e-Raksha Setu. Please rate your experience.',
-              [{ text: 'Rate Journey', onPress: () => navigation.navigate('Profile') }]
-            );
+          // Update heading (direction)
+          if (locationHeading !== null && locationHeading !== -1) {
+            setHeading(locationHeading);
+            setDirection(getCardinalDirection(locationHeading));
           }
+
+          // Update speed (convert m/s to km/h)
+          if (locationSpeed !== null) {
+            setSpeed((locationSpeed * 3.6).toFixed(1));
+          }
+
+          // Fetch nearby places only every 30 seconds to reduce API calls
+          const currentTime = Date.now();
+          if (currentTime - lastFetchTime > FETCH_INTERVAL) {
+            fetchNearbyPlaces(latitude, longitude);
+            lastFetchTime = currentTime;
+          }
+
+          // Smoother camera animation with reduced frequency - only center, don't zoom
+          if (mapRef.current) {
+            mapRef.current.animateCamera({
+              center: { latitude, longitude },
+              heading: 0,
+              pitch: 0,
+              zoom: 12, // Wider zoom to see 10km radius
+            }, { duration: 1500 }); // Smooth 1.5-second animation
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error starting live tracking:', error);
+      Alert.alert('Tracking Error', 'Unable to start live location tracking.');
+    }
+  };
+
+  const fetchNearbyPlaces = async (latitude, longitude, retryCount = 0) => {
+    // Initialize markers arrays at the start of the function
+    let hospitalMarkers = [];
+    let policeMarkers = [];
+    
+    try {
+      setIsLoadingPlaces(true);
+      setPlacesError(null);
+      console.log(`🔍 Fetching nearby places for coordinates: ${latitude}, ${longitude} (Attempt ${retryCount + 1})`);
+      
+      const radius = 5000; // 5km radius for faster API response (5000 meters = 5km)
+      
+      // Using Overpass API (OpenStreetMap) - Simplified query for faster response
+      const hospitalQuery = `
+        [out:json][timeout:10];
+        (
+          node["amenity"="hospital"](around:${radius},${latitude},${longitude});
+          way["amenity"="hospital"](around:${radius},${latitude},${longitude});
+        );
+        out center;
+      `;
+
+      console.log('📡 Fetching hospitals from Overpass API...');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const hospitalResponse = await fetch(
+        `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(hospitalQuery)}`,
+        { 
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        }
+      ).finally(() => clearTimeout(timeoutId));
+      
+      if (!hospitalResponse.ok) {
+        if (hospitalResponse.status === 504 || hospitalResponse.status === 429) {
+          throw new Error(`API_TIMEOUT`);
+        }
+        throw new Error(`Hospital API returned status: ${hospitalResponse.status}`);
+      }
+      
+      const hospitalData = await hospitalResponse.json();
+      console.log(`✅ Received ${hospitalData.elements?.length || 0} hospital elements from API`);
+      
+      if (hospitalData.remark) {
+        console.log('⚠️ API Remark:', hospitalData.remark);
+      }
+      
+      if (hospitalData.elements) {
+        const seenCoordinates = new Set();
+        
+        hospitalData.elements.forEach(element => {
+          let lat, lon;
+          
+          // Get coordinates based on element type
+          if (element.type === 'node') {
+            lat = element.lat;
+            lon = element.lon;
+          } else if (element.center) {
+            // For ways and relations, use center point
+            lat = element.center.lat;
+            lon = element.center.lon;
+          }
+          
+          // Only add if we have valid coordinates and a name
+          if (lat && lon && element.tags) {
+            const coordKey = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+            
+            // Avoid duplicate locations
+            if (!seenCoordinates.has(coordKey)) {
+              seenCoordinates.add(coordKey);
+              
+              const name = element.tags.name || 
+                          element.tags['name:en'] || 
+                          element.tags['official_name'] ||
+                          'Hospital';
+              
+              const address = element.tags['addr:full'] || 
+                            `${element.tags['addr:street'] || ''} ${element.tags['addr:housenumber'] || ''}`.trim() ||
+                            element.tags['addr:city'] ||
+                            'Address not available';
+              
+              const phone = element.tags.phone || element.tags['contact:phone'] || '';
+              const emergency = element.tags.emergency || element.tags['emergency:phone'] || '';
+              
+              hospitalMarkers.push({
+                id: element.id.toString(),
+                name: name,
+                latitude: lat,
+                longitude: lon,
+                address: address,
+                phone: phone,
+                emergency: emergency,
+                type: 'hospital',
+              });
+            }
+          }
+        });
+        
+        console.log(`✅ Setting ${hospitalMarkers.length} hospitals to state`);
+        setHospitals(hospitalMarkers);
+        
+        if (hospitalMarkers.length > 0) {
+          console.log(`✅ Found ${hospitalMarkers.length} hospitals within 5km`);
+          console.log('First 3 hospital details:');
+          hospitalMarkers.slice(0, 3).forEach((h, i) => {
+            console.log(`  ${i + 1}. ${h.name} at [${h.latitude}, ${h.longitude}]`);
+          });
+        } else {
+          console.log('⚠️ No hospitals found within 5km.');
+        }
+      }
+
+      // Simplified query for police stations
+      console.log('📡 Fetching police stations from Overpass API...');
+      const policeQuery = `
+        [out:json][timeout:10];
+        (
+          node["amenity"="police"](around:${radius},${latitude},${longitude});
+          way["amenity"="police"](around:${radius},${latitude},${longitude});
+        );
+        out center;
+      `;
+
+      // Wait 2 seconds between requests to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const policeController = new AbortController();
+      const policeTimeoutId = setTimeout(() => policeController.abort(), 10000);
+      
+      const policeResponse = await fetch(
+        `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(policeQuery)}`,
+        { 
+          signal: policeController.signal,
+          headers: { 'Accept': 'application/json' }
+        }
+      ).finally(() => clearTimeout(policeTimeoutId));
+      
+      if (!policeResponse.ok) {
+        if (policeResponse.status === 504 || policeResponse.status === 429) {
+          throw new Error(`API_TIMEOUT`);
+        }
+        throw new Error(`Police API returned status: ${policeResponse.status}`);
+      }
+      
+      const policeData = await policeResponse.json();
+      console.log(`✅ Received ${policeData.elements?.length || 0} police station elements from API`);
+      
+      if (policeData.remark) {
+        console.log('⚠️ API Remark:', policeData.remark);
+      }
+      
+      if (policeData.elements) {
+        const seenCoordinates = new Set();
+        
+        policeData.elements.forEach(element => {
+          let lat, lon;
+          
+          // Get coordinates based on element type
+          if (element.type === 'node') {
+            lat = element.lat;
+            lon = element.lon;
+          } else if (element.center) {
+            // For ways and relations, use center point
+            lat = element.center.lat;
+            lon = element.center.lon;
+          }
+          
+          // Only add if we have valid coordinates and tags
+          if (lat && lon && element.tags) {
+            const coordKey = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+            
+            // Avoid duplicate locations
+            if (!seenCoordinates.has(coordKey)) {
+              seenCoordinates.add(coordKey);
+              
+              const name = element.tags.name || 
+                          element.tags['name:en'] || 
+                          element.tags['official_name'] ||
+                          'Police Station';
+              
+              const address = element.tags['addr:full'] || 
+                            `${element.tags['addr:street'] || ''} ${element.tags['addr:housenumber'] || ''}`.trim() ||
+                            element.tags['addr:city'] ||
+                            'Address not available';
+              
+              const phone = element.tags.phone || element.tags['contact:phone'] || element.tags['phone:emergency'] || '';
+              
+              policeMarkers.push({
+                id: element.id.toString(),
+                name: name,
+                latitude: lat,
+                longitude: lon,
+                address: address,
+                phone: phone,
+                type: 'police',
+              });
+            }
+          }
+        });
+        
+        console.log(`✅ Setting ${policeMarkers.length} police stations to state`);
+        setPoliceStations(policeMarkers);
+        
+        if (policeMarkers.length > 0) {
+          console.log(`✅ Found ${policeMarkers.length} police stations within 5km`);
+          console.log('First 3 police station details:');
+          policeMarkers.slice(0, 3).forEach((p, i) => {
+            console.log(`  ${i + 1}. ${p.name} at [${p.latitude}, ${p.longitude}]`);
+          });
+        } else {
+          console.log('⚠️ No police stations found within 5km.');
+        }
+      }
+      
+      // Move this outside the if block to ensure it always runs
+      setIsLoadingPlaces(false);
+      
+      // Show user feedback
+      if (hospitalMarkers.length === 0 && policeMarkers.length === 0) {
+        Alert.alert(
+          'No Nearby Facilities Found',
+          'No hospitals or police stations found within 5km. Try using the refresh button to search again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error fetching nearby places:', error);
+      setIsLoadingPlaces(false);
+      setPlacesError(error.message);
+      
+      // Retry logic for timeout errors
+      if (error.message === 'API_TIMEOUT' && retryCount < 2) {
+        console.log(`⏳ Retrying in 3 seconds... (Attempt ${retryCount + 2}/3)`);
+        setTimeout(() => {
+          fetchNearbyPlaces(latitude, longitude, retryCount + 1);
+        }, 3000);
+        return;
+      }
+      
+      // Show error to user
+      Alert.alert(
+        'Unable to Load Nearby Facilities',
+        `Could not fetch hospitals and police stations.\n\nError: ${error.message}\n\nPlease check your internet connection and try again.`,
+        [
+          { text: 'Retry', onPress: () => {
+            if (currentLocation) {
+              fetchNearbyPlaces(currentLocation.latitude, currentLocation.longitude);
+            }
+          }},
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
+  };
+
+  const getCardinalDirection = (heading) => {
+    if (heading === null || heading === -1) return 'N';
+    
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const index = Math.round(heading / 45) % 8;
+    return directions[index];
+  };
+
+  const toggleTracking = () => {
+    setIsTracking(!isTracking);
+    if (!isTracking) {
+      startLiveTracking();
+    } else {
+      if (locationSubscription.current) {
+        locationSubscription.current.remove();
+      }
+    }
+  };
+
+  const centerOnUser = () => {
+    if (currentLocation && mapRef.current) {
+      mapRef.current.animateToRegion(currentLocation, 500);
+    }
+  };
+
+  const manualSearchPlaces = () => {
+    if (!currentLocation) {
+      Alert.alert('Location Required', 'Please wait for GPS to acquire your location first.');
+      return;
+    }
+    
+    Alert.alert(
+      'Search Nearby Facilities',
+      `Current location: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}\n\nThis will search for hospitals and police stations within 5km radius.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Search Now', 
+          onPress: () => fetchNearbyPlaces(currentLocation.latitude, currentLocation.longitude)
         }
       ]
     );
   };
 
-  const updateTripData = () => {
-    if (!tripData.startTime) return;
-
-    const now = Date.now();
-    const duration = Math.floor((now - tripData.startTime) / 1000); // seconds
-    const hours = Math.floor(duration / 3600);
-    const minutes = Math.floor((duration % 3600) / 60);
-
-    setTripData(prev => ({
-      ...prev,
-      duration: `${hours}:${minutes.toString().padStart(2, '0')}`,
-      distance: (Math.random() * 50 + 10).toFixed(1), // Mock distance
-      speed: (Math.random() * 30 + 40).toFixed(0), // Mock speed
-      batteryLevel: Math.max(20, prev.batteryLevel - 0.1),
-      networkStrength: Math.floor(Math.random() * 5) + 1,
-    }));
-  };
-
-  const checkForAnomalies = () => {
-    const now = Date.now();
-    const inactiveTime = now - lastActivity;
-    
-    // Check for prolonged inactivity (mock)
-    if (inactiveTime > 30000) { // 30 seconds for demo
-      setAlertsCount(prev => prev + 1);
-      // In real app, this would trigger SOS alerts
-    }
-
-    // Mock deviation detection
-    const random = Math.random();
-    if (random < 0.1) {
-      setDeviationStatus('minor-deviation');
-    } else if (random < 0.02) {
-      setDeviationStatus('major-deviation');
-    } else {
-      setDeviationStatus('on-route');
-    }
-  };
-
-  const handleEmergencyAction = (type) => {
-    navigation.navigate('Emergency', { emergencyType: type });
-  };
-
-  const getDeviationColor = () => {
-    switch (deviationStatus) {
-      case 'on-route': return theme.colors.success;
-      case 'minor-deviation': return theme.colors.warning;
-      case 'major-deviation': return theme.colors.error;
-      default: return theme.colors.success;
-    }
-  };
-
-  const getDeviationText = () => {
-    switch (deviationStatus) {
-      case 'on-route': return 'On Route';
-      case 'minor-deviation': return 'Minor Deviation';
-      case 'major-deviation': return 'Major Deviation';
-      default: return 'Unknown';
-    }
-  };
-
-  const getStatusText = () => {
-    if (!journeyActive) return 'Not Started';
-    return getDeviationText();
-  };
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.container}>
-      <StatusBar backgroundColor={theme.colors.primary} barStyle="light-content" />
-      
-      {/* Header */}
-      <LinearGradient
-        colors={[theme.colors.primary, theme.colors.secondary]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Safety Dashboard</Text>
-          <View style={styles.statusContainer}>
-            <Animated.View 
-              style={[
-                styles.statusIndicator,
-                { transform: [{ scale: isMonitoring ? pulseAnim : 1 }] },
-                { backgroundColor: isMonitoring ? theme.colors.success : theme.colors.textSecondary }
-              ]}
-            />
-            <Text style={styles.statusText}>
-              {isMonitoring ? 'Monitoring Active' : 'Monitoring Inactive'}
-            </Text>
-          </View>
-        </View>
+        <StatusBar backgroundColor={theme.colors.primary} barStyle="light-content" />
         
-        <TouchableOpacity 
-          style={styles.settingsButton}
-          onPress={() => navigation.navigate('Settings')}
+        {/* Header */}
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.secondary]}
+          style={styles.header}
         >
-          <Ionicons name="settings" size={24} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Quick Actions */}
-        <View style={styles.quickActionsContainer}>
-          <TouchableOpacity 
-            style={[styles.emergencyButton, styles.panicButton]}
-            onPress={() => handleEmergencyAction('panic')}
-          >
-            <LinearGradient
-              colors={[theme.colors.emergency, theme.colors.panic]}
-              style={styles.emergencyButtonGradient}
-            >
-              <Ionicons name="warning" size={32} color="#fff" />
-              <Text style={styles.emergencyButtonText}>PANIC</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.emergencyButton, styles.sosButton]}
-            onPress={() => handleEmergencyAction('sos')}
-          >
-            <LinearGradient
-              colors={[theme.colors.sos, theme.colors.emergency]}
-              style={styles.emergencyButtonGradient}
-            >
-              <Ionicons name="call" size={32} color="#fff" />
-              <Text style={styles.emergencyButtonText}>SOS</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {!journeyStarted ? (
-          // Pre-Journey State
-          <View style={styles.preJourneyContainer}>
-            <View style={styles.welcomeCard}>
-              <LinearGradient
-                colors={[`${theme.colors.primary}10`, `${theme.colors.primary}05`]}
-                style={styles.welcomeGradient}
-              >
-                <Ionicons name="shield-checkmark" size={64} color={theme.colors.primary} />
-                <Text style={styles.welcomeTitle}>Ready for Safe Travel</Text>
-                <Text style={styles.welcomeDescription}>
-                  Your digital ID is verified and emergency contacts are set. 
-                  Select a destination to begin safety monitoring.
-                </Text>
-                
-                <TouchableOpacity 
-                  style={styles.selectRouteButton}
-                  onPress={() => navigation.navigate('RouteSelection')}
-                >
-                  <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.secondary]}
-                    style={styles.selectRouteGradient}
-                  >
-                    <Ionicons name="map" size={20} color="#fff" />
-                    <Text style={styles.selectRouteText}>Select Destination</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </LinearGradient>
-            </View>
-            
-            {/* Safety Features Overview */}
-            <View style={styles.featuresOverview}>
-              <Text style={styles.featuresTitle}>Safety Features</Text>
-              <View style={styles.featuresList}>
-                <View style={styles.featureItem}>
-                  <Ionicons name="location" size={20} color={theme.colors.accent} />
-                  <Text style={styles.featureText}>Real-time GPS tracking</Text>
-                </View>
-                <View style={styles.featureItem}>
-                  <Ionicons name="analytics" size={20} color={theme.colors.accent} />
-                  <Text style={styles.featureText}>AI anomaly detection</Text>
-                </View>
-                <View style={styles.featureItem}>
-                  <Ionicons name="call" size={20} color={theme.colors.accent} />
-                  <Text style={styles.featureText}>Emergency SOS system</Text>
-                </View>
-                <View style={styles.featureItem}>
-                  <Ionicons name="people" size={20} color={theme.colors.accent} />
-                  <Text style={styles.featureText}>Family sharing (optional)</Text>
-                </View>
-              </View>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Live Tracking</Text>
+            <View style={styles.statusContainer}>
+              <View 
+                style={[
+                  styles.statusIndicator,
+                  { backgroundColor: isTracking ? theme.colors.success : theme.colors.error }
+                ]}
+              />
+              <Text style={styles.statusText}>
+                {isTracking ? 'Tracking Active' : 'Tracking Paused'}
+              </Text>
             </View>
           </View>
-        ) : (
-          // Journey Active State
-          <Animated.View 
-            style={[
-              styles.journeyContainer,
-              { opacity: slideAnim }
-            ]}
-          >
-            {/* Map View */}
-            <View style={styles.mapContainer}>
-              <View style={styles.mapPlaceholder}>
-                <LinearGradient
-                  colors={['#E8F5E8', '#C8E6C9']}
-                  style={styles.map}
+        </LinearGradient>
+
+        {/* Map Container */}
+        <View style={styles.mapContainer}>
+          {currentLocation ? (
+            <MapView
+              ref={mapRef}
+              provider={PROVIDER_GOOGLE}
+              style={styles.map}
+              initialRegion={currentLocation}
+              showsUserLocation={false}
+              showsMyLocationButton={false}
+              showsCompass={false}
+              showsBuildings={false}
+              showsIndoors={false}
+              showsTraffic={false}
+              mapType="standard"
+              loadingEnabled={true}
+              pitchEnabled={false}
+              rotateEnabled={true}
+              zoomEnabled={true}
+              scrollEnabled={true}
+              maxZoomLevel={20}
+              minZoomLevel={10}
+            >
+              {/* Custom User Location Marker with Directional Arrow */}
+              <Marker
+                coordinate={{
+                  latitude: currentLocation.latitude,
+                  longitude: currentLocation.longitude,
+                }}
+                anchor={{ x: 0.5, y: 0.5 }}
+                flat={true}
+                zIndex={1000}
+              >
+                <View style={styles.userLocationMarker}>
+                  {/* Outer Pulse Ring */}
+                  <View style={styles.pulseRing} />
+                  {/* Direction Arrow - Centered */}
+                  <View style={styles.arrowPointer}>
+                    <Ionicons 
+                      name="navigate" 
+                      size={20} 
+                      color={theme.colors.primary} 
+                      style={{ transform: [{ rotate: `${heading}deg` }] }}
+                    />
+                  </View>
+                </View>
+              </Marker>
+
+              {/* Hospital Markers */}
+              {showHospitals && hospitals.map((hospital) => (
+                <Marker
+                  key={`hospital-${hospital.id}`}
+                  coordinate={{
+                    latitude: parseFloat(hospital.latitude),
+                    longitude: parseFloat(hospital.longitude),
+                  }}
+                  title={hospital.name}
+                  description={hospital.address}
+                  tracksViewChanges={false}
+                  zIndex={10}
                 >
-                  <Animated.View style={[styles.locationIndicator, { transform: [{ scale: pulseAnim }] }]}>
-                    <Ionicons name="location" size={60} color={theme.colors.primary} />
-                  </Animated.View>
-                  <Text style={styles.mapPlaceholderText}>Live Tracking Active</Text>
-                  <Text style={styles.mapPlaceholderSubtext}>
-                    {currentLocation ? 'GPS Signal Strong' : 'Acquiring GPS Signal...'}
+                  <View style={styles.hospitalMarker}>
+                    <Ionicons name="medical" size={16} color="#fff" />
+                  </View>
+                </Marker>
+              ))}
+
+              {/* Police Station Markers */}
+              {showPolice && policeStations.map((station) => (
+                <Marker
+                  key={`police-${station.id}`}
+                  coordinate={{
+                    latitude: parseFloat(station.latitude),
+                    longitude: parseFloat(station.longitude),
+                  }}
+                  title={station.name}
+                  description={station.address}
+                  tracksViewChanges={false}
+                  zIndex={10}
+                >
+                  <View style={styles.policeMarker}>
+                    <Ionicons name="shield" size={16} color="#fff" />
+                  </View>
+                </Marker>
+              ))}
+            </MapView>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="location" size={64} color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Acquiring GPS Signal...</Text>
+            </View>
+          )}
+
+          {/* Map Overlays */}
+          <View style={styles.overlayTop}>
+            <View style={styles.leftControls}>
+              {/* Speed Indicator */}
+              <View style={styles.speedCard}>
+                <Ionicons name="speedometer" size={20} color={theme.colors.primary} />
+                <Text style={styles.speedValue}>{speed} km/h</Text>
+              </View>
+
+              {/* Status Indicator */}
+              {isLoadingPlaces && (
+                <View style={styles.loadingIndicator}>
+                  <Text style={styles.loadingText}>Loading...</Text>
+                </View>
+              )}
+
+              {/* Filter Buttons */}
+              <View style={styles.filterButtons}>
+                <TouchableOpacity 
+                  style={[styles.filterButton, showHospitals && styles.filterButtonActive]}
+                  onPress={() => setShowHospitals(!showHospitals)}
+                >
+                  <Ionicons name="medical" size={18} color={showHospitals ? '#fff' : '#DC143C'} />
+                  <Text style={[styles.filterButtonText, showHospitals && styles.filterButtonTextActive]}>
+                    {isLoadingPlaces ? '...' : hospitals.length}
                   </Text>
-                  {journeyStats && (
-                    <View style={styles.liveStats}>
-                      <View style={styles.liveStat}>
-                        <Ionicons name="speedometer" size={16} color={theme.colors.primary} />
-                        <Text style={styles.liveStatText}>Speed: {journeyStats.speed}</Text>
-                      </View>
-                      <View style={styles.liveStat}>
-                        <Ionicons name="shield" size={16} color={getDeviationColor()} />
-                        <Text style={styles.liveStatText}>Status: {getStatusText()}</Text>
-                      </View>
-                    </View>
-                  )}
-                </LinearGradient>
-              </View>
-              
-              {/* Map Overlay */}
-              <View style={styles.mapOverlay}>
-                <View style={[styles.deviationBadge, { backgroundColor: getDeviationColor() }]}>
-                  <Text style={styles.deviationText}>{getDeviationText()}</Text>
-                </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.filterButton, showPolice && styles.filterButtonActive]}
+                  onPress={() => setShowPolice(!showPolice)}
+                >
+                  <Ionicons name="shield" size={18} color={showPolice ? '#fff' : '#1E40AF'} />
+                  <Text style={[styles.filterButtonText, showPolice && styles.filterButtonTextActive]}>
+                    {isLoadingPlaces ? '...' : policeStations.length}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
-            {/* Trip Stats */}
-            <View style={styles.tripStatsContainer}>
-              <Text style={styles.tripStatsTitle}>Journey Statistics</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                  <Ionicons name="time" size={20} color={theme.colors.primary} />
-                  <Text style={styles.statValue}>{tripData.duration}</Text>
-                  <Text style={styles.statLabel}>Duration</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="location" size={20} color={theme.colors.accent} />
-                  <Text style={styles.statValue}>{tripData.distance} km</Text>
-                  <Text style={styles.statLabel}>Distance</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="speedometer" size={20} color={theme.colors.info} />
-                  <Text style={styles.statValue}>{tripData.speed} km/h</Text>
-                  <Text style={styles.statLabel}>Speed</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="notifications" size={20} color={theme.colors.warning} />
-                  <Text style={styles.statValue}>{alertsCount}</Text>
-                  <Text style={styles.statLabel}>Alerts</Text>
-                </View>
-              </View>
+            {/* Direction Card */}
+            <View style={styles.directionCard}>
+              <Text style={styles.directionCardLabel}>Heading</Text>
+              <Text style={styles.directionCardValue}>{direction}</Text>
+              <Text style={styles.directionCardDegrees}>{heading.toFixed(0)}°</Text>
             </View>
+          </View>
 
-            {/* System Status */}
-            <View style={styles.systemStatusContainer}>
-              <Text style={styles.systemStatusTitle}>System Status</Text>
-              <View style={styles.statusGrid}>
-                <View style={styles.statusItem}>
-                  <Ionicons 
-                    name="battery-full" 
-                    size={16} 
-                    color={tripData.batteryLevel > 20 ? theme.colors.success : theme.colors.error} 
-                  />
-                  <Text style={styles.statusText}>Battery: {tripData.batteryLevel.toFixed(0)}%</Text>
-                </View>
-                <View style={styles.statusItem}>
-                  <Ionicons 
-                    name="cellular" 
-                    size={16} 
-                    color={tripData.networkStrength > 2 ? theme.colors.success : theme.colors.warning} 
-                  />
-                  <Text style={styles.statusText}>Network: {tripData.networkStrength}/5</Text>
-                </View>
-                <View style={styles.statusItem}>
-                  <Ionicons name="location" size={16} color={theme.colors.success} />
-                  <Text style={styles.statusText}>GPS: Active</Text>
-                </View>
-                <View style={styles.statusItem}>
-                  <Ionicons name="cloud" size={16} color={theme.colors.info} />
-                  <Text style={styles.statusText}>Sync: Online</Text>
-                </View>
+          {/* Bottom Controls */}
+          <View style={styles.overlayBottom}>
+            {/* Center on User Button */}
+            <TouchableOpacity 
+              style={styles.controlButton}
+              onPress={centerOnUser}
+            >
+              <Ionicons name="locate" size={24} color={theme.colors.primary} />
+            </TouchableOpacity>
+
+            {/* Refresh Places Button */}
+            <TouchableOpacity 
+              style={styles.refreshPlacesButton}
+              onPress={() => {
+                if (currentLocation) {
+                  fetchNearbyPlaces(currentLocation.latitude, currentLocation.longitude);
+                }
+              }}
+              disabled={isLoadingPlaces}
+            >
+              <Ionicons 
+                name="refresh" 
+                size={24} 
+                color={theme.colors.primary} 
+              />
+            </TouchableOpacity>
+
+            {/* Tracking Toggle Button */}
+            <TouchableOpacity 
+              style={[styles.trackingButton, { backgroundColor: isTracking ? theme.colors.error : theme.colors.success }]}
+              onPress={toggleTracking}
+            >
+              <Ionicons 
+                name={isTracking ? 'pause' : 'play'} 
+                size={24} 
+                color="#fff" 
+              />
+              <Text style={styles.trackingButtonText}>
+                {isTracking ? 'Pause Tracking' : 'Resume Tracking'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Location Info Panel */}
+        {currentLocation && (
+          <View style={styles.infoPanel}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoItem}>
+                <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.infoLabel}>Latitude</Text>
+                <Text style={styles.infoValue}>{currentLocation.latitude.toFixed(6)}</Text>
               </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => navigation.navigate('Emergency')}
-              >
-                <Ionicons name="medical" size={20} color={theme.colors.primary} />
-                <Text style={styles.actionButtonText}>Emergency</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => {/* Share location */}}
-              >
-                <Ionicons name="share" size={20} color={theme.colors.accent} />
-                <Text style={styles.actionButtonText}>Share Location</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.endJourneyButton]}
-                onPress={handleEndJourney}
-              >
-                <Ionicons name="stop" size={20} color={theme.colors.error} />
-                <Text style={[styles.actionButtonText, { color: theme.colors.error }]}>
-                  End Journey
+              <View style={styles.infoDivider} />
+              <View style={styles.infoItem}>
+                <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.infoLabel}>Longitude</Text>
+                <Text style={styles.infoValue}>{currentLocation.longitude.toFixed(6)}</Text>
+              </View>
+              <View style={styles.infoDivider} />
+              <View style={styles.infoItem}>
+                <Ionicons name="business-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.infoLabel}>Facilities</Text>
+                <Text style={styles.infoValue}>
+                  {hospitals.length}H / {policeStations.length}P
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
-          </Animated.View>
+            {(hospitals.length === 0 && policeStations.length === 0 && !isLoadingPlaces) && (
+              <TouchableOpacity 
+                style={styles.searchButton}
+                onPress={manualSearchPlaces}
+              >
+                <Ionicons name="search" size={16} color="#fff" />
+                <Text style={styles.searchButtonText}>Search Nearby Facilities</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
-      </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -482,8 +691,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingTop: 40,
     paddingBottom: theme.spacing.lg,
@@ -502,283 +709,268 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: theme.spacing.xs,
   },
   statusText: {
     fontSize: theme.fonts.sizes.sm,
     color: 'rgba(255,255,255,0.9)',
   },
-  settingsButton: {
-    padding: theme.spacing.sm,
-  },
-  content: {
-    flex: 1,
-  },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    gap: theme.spacing.md,
-  },
-  emergencyButton: {
-    flex: 1,
-    height: 80,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...theme.shadows.medium,
-  },
-  emergencyButtonGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emergencyButtonText: {
-    fontSize: theme.fonts.sizes.sm,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: theme.spacing.xs,
-  },
-  preJourneyContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  welcomeCard: {
-    marginBottom: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-  },
-  welcomeGradient: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  welcomeTitle: {
-    fontSize: theme.fonts.sizes.xl,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-  },
-  welcomeDescription: {
-    fontSize: theme.fonts.sizes.md,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: theme.spacing.xl,
-  },
-  selectRouteButton: {
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-  },
-  selectRouteGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-  },
-  selectRouteText: {
-    marginLeft: theme.spacing.sm,
-    fontSize: theme.fonts.sizes.md,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  featuresOverview: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  featuresTitle: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
-  featuresList: {
-    gap: theme.spacing.md,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureText: {
-    marginLeft: theme.spacing.sm,
-    fontSize: theme.fonts.sizes.md,
-    color: theme.colors.textSecondary,
-  },
-  journeyContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
   mapContainer: {
-    height: 250,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    marginBottom: theme.spacing.lg,
+    flex: 1,
     position: 'relative',
+    overflow: 'hidden',
   },
   map: {
     flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
-  mapOverlay: {
-    position: 'absolute',
-    top: theme.spacing.md,
-    right: theme.spacing.md,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
   },
-  deviationBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.textSecondary,
   },
-  deviationText: {
-    fontSize: theme.fonts.sizes.sm,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  currentLocationMarker: {
+  userLocationMarker: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  locationPulse: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${theme.colors.primary}30`,
+  pulseRing: {
     position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: `${theme.colors.primary}20`,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
   },
-  locationCenter: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  arrowPointer: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  overlayTop: {
+    position: 'absolute',
+    top: theme.spacing.lg,
+    left: theme.spacing.lg,
+    right: theme.spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  leftControls: {
+    gap: theme.spacing.sm,
+  },
+  speedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    ...theme.shadows.medium,
+  },
+  speedValue: {
+    marginLeft: theme.spacing.xs,
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+    gap: 4,
+    ...theme.shadows.small,
+  },
+  filterButtonActive: {
     backgroundColor: theme.colors.primary,
   },
-  tripStatsContainer: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  tripStatsTitle: {
-    fontSize: theme.fonts.sizes.lg,
+  filterButtonText: {
+    fontSize: theme.fonts.sizes.xs,
     fontWeight: 'bold',
     color: theme.colors.text,
-    marginBottom: theme.spacing.md,
   },
-  statsGrid: {
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  hospitalMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DC143C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  policeMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E40AF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  directionCard: {
+    backgroundColor: '#fff',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+    ...theme.shadows.medium,
+  },
+  directionCardLabel: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  directionCardValue: {
+    fontSize: theme.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  directionCardDegrees: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  overlayBottom: {
+    position: 'absolute',
+    bottom: theme.spacing.xl,
+    left: theme.spacing.lg,
+    right: theme.spacing.lg,
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: theme.spacing.md,
   },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
+  controlButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.md,
+    ...theme.shadows.medium,
+  },
+  refreshPlacesButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...theme.shadows.medium,
+  },
+  loadingIndicator: {
+    backgroundColor: '#fff',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.md,
+    ...theme.shadows.small,
   },
-  statValue: {
-    fontSize: theme.fonts.sizes.lg,
+  loadingText: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.primary,
     fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: theme.spacing.xs,
   },
-  statLabel: {
+  trackingButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    ...theme.shadows.medium,
+  },
+  trackingButtonText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  infoPanel: {
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  infoLabel: {
     fontSize: theme.fonts.sizes.xs,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
   },
-  systemStatusContainer: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  systemStatusTitle: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
+  infoValue: {
+    fontSize: theme.fonts.sizes.sm,
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: theme.spacing.md,
+    marginTop: 2,
   },
-  statusGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
+  infoDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: theme.colors.border,
   },
-  statusItem: {
-    flex: 1,
-    minWidth: '45%',
+  searchButton: {
+    marginTop: theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-  },
-  statusText: {
-    marginLeft: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
-  },
-  actionButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  actionButtonText: {
-    marginTop: theme.spacing.xs,
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.text,
-    fontWeight: '500',
-  },
-  endJourneyButton: {
-    borderColor: theme.colors.error,
-    backgroundColor: `${theme.colors.error}10`,
-  },
-  mapPlaceholder: {
-    height: 250,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-  },
-  locationIndicator: {
-    marginBottom: theme.spacing.md,
-  },
-  mapPlaceholderText: {
-    fontSize: theme.fonts.sizes.lg,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
-  },
-  mapPlaceholderSubtext: {
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
-  },
-  liveStats: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-  },
-  liveStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
     gap: theme.spacing.xs,
   },
-  liveStatText: {
+  searchButtonText: {
     fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

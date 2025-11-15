@@ -466,7 +466,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    paddingTop: 50,
     paddingBottom: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
   },
