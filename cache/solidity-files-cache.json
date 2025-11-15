@@ -36,6 +36,42 @@
       "artifacts": [
         "TouristSafety"
       ]
+    },
+    "F:\\e-Raksha-Setu\\src\\contracts\\TouristLogChain.sol": {
+      "lastModificationDate": 1763244568384,
+      "contentHash": "ac8b33ee7103a08bd8ecc676ae465680",
+      "sourceName": "src/contracts/TouristLogChain.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "TouristLogChain"
+      ]
     }
   }
 }

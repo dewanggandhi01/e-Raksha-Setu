@@ -12,10 +12,18 @@ async function main() {
   const deployedAddress = await tourist.getAddress();
   console.log("TouristSafety deployed to:", deployedAddress);
 
-  // print a minimal JSON for convenience
+  const TouristLogChain = await hre.ethers.getContractFactory("TouristLogChain");
+  console.log("Deploying TouristLogChain...");
+  const logChain = await TouristLogChain.deploy();
+  await logChain.waitForDeployment();
+
+  const logChainAddress = await logChain.getAddress();
+  console.log("TouristLogChain deployed to:", logChainAddress);
+
   const fs = require("fs");
   const out = {
-    address: deployedAddress,
+    TouristSafety: deployedAddress,
+    TouristLogChain: logChainAddress,
     network: hre.network.name
   };
   fs.writeFileSync("deployed-address.json", JSON.stringify(out, null, 2));
