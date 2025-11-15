@@ -620,6 +620,7 @@ export default function RouteSelectionScreen({ navigation }) {
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
                 </View>
+                
               </LinearGradient>
             </TouchableOpacity>
 
